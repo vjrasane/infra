@@ -1,0 +1,49 @@
+terraform {
+  required_providers {
+    proxmox = {
+      source = "telmate/proxmox"
+    }
+
+    bitwarden = {
+      source  = "maxlaverse/bitwarden"
+      version = ">= 0.13.6"
+    }
+
+    ansible = {
+      source = "ansible/ansible"
+    }
+  }
+
+  encryption {
+    key_provider "pbkdf2" "passphrase" {
+      passphrase = "<default>"
+    }
+
+    method "aes_gcm" "encrypt" {
+      keys = key_provider.pbkdf2.passphrase
+    }
+
+    state {
+      enforced = true
+      method   = method.aes_gcm.encrypt
+    }
+
+    plan {
+      enforced = true
+      method   = method.aes_gcm.encrypt
+    }
+  }
+
+  backend "s3" {
+    region   = "eu-central-003"
+    endpoint = "s3.eu-central-003.backblazeb2.com"
+    bucket   = "karkkinet-terraform-state"
+    key      = "homelab.tfstate"
+
+    skip_metadata_api_check     = true
+    skip_requesting_account_id  = true
+    skip_region_validation      = true
+    skip_s3_checksum            = true
+    skip_credentials_validation = true
+  }
+}

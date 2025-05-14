@@ -1,0 +1,6 @@
+.terraform
+.bitwarden
+.ansible
+.kube
+**/*.tfstate
+**/*.pem
