@@ -3,11 +3,6 @@ variable "backend_bucket" {
   type        = string
 }
 
-variable "backend_key" {
-  description = "Backend key name"
-  type        = string
-}
-
 terraform {
   required_providers {
     proxmox = {
@@ -54,7 +49,7 @@ terraform {
     region   = "eu-central-003"
     endpoint = "s3.eu-central-003.backblazeb2.com"
     bucket   = var.backend_bucket
-    key      = var.backend_key
+    key      = "main.tfstate"
 
     skip_metadata_api_check     = true
     skip_requesting_account_id  = true

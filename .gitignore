@@ -2,5 +2,5 @@
 .bitwarden
 .ansible
 .kube
-**/*.tfstate
+**/*.tfstate*
 **/*.pem

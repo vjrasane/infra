@@ -1,0 +1,64 @@
+# This file is maintained automatically by "tofu init".
+# Manual edits may be lost in future updates.
+
+provider "registry.opentofu.org/hashicorp/dns" {
+  version     = "3.4.3"
+  constraints = "3.4.3"
+  hashes = [
+    "h1:5rNTdN+8ASjCwmAWsKrB1sBMJ0oMAOU6AcUS0+Zsp34=",
+    "zh:1e2b7a78c1ca570860ec1dbe81834cc3015b6ceee98e8a231111704ea0ca44ad",
+    "zh:1eaa3eb2a08ce40880edeba23ff8f5b09c5df403724e8f32e886ee99e6a72b7b",
+    "zh:33157dc9e4146fa459598d63cf0ed1120d9568272449b5097268d01de6be3884",
+    "zh:3e1d98aa57fab96fd12ba44b077826a8d0722beb9c12306219d9d7ce87ba547a",
+    "zh:71a3722011be02e28dbd10b5831cdbb79deb85484fc937d66fe2f64899b021a6",
+    "zh:8fa38bac4590544fda877dddf699e1d80d52fef81655c4a18c97ab34799922b7",
+    "zh:961f973ff1baab5950d4315aec03d0fc3c54cf64ef58cf58590fb3cb29aa742e",
+    "zh:b01e570c054f58f73a01aa937a1c36443d4036a12edf5ca444356552f0cf137e",
+    "zh:e2ecc873327978ab3b704ccb7a9746835d62e78aa51152565047b5e3d705e7d5",
+    "zh:edb22e5a20db138c5f862e29ec0e84722f35e04deba93df3c8639cf6abae48a5",
+  ]
+}
+
+provider "registry.opentofu.org/kreuzwerker/docker" {
+  version     = "3.5.0"
+  constraints = "3.5.0"
+  hashes = [
+    "h1:j0REIQY6zq1P0iDUdo5pGZQZy85/EK5ckvRqqzYMMLQ=",
+    "zh:01fa6b2f9c44fc0f286f27941d3866adb749e34235f25b9d731b4f45f9c8a601",
+    "zh:0f945042448360b3f44662db4dceb7287236a950cf936bc973735acc7cded206",
+    "zh:44f1e6b5b451d072e84dffe61dbf2c3fbbb4a9f8e98f921a99025ac19c6adbb6",
+    "zh:5724f8af7c2bbd0f019114421dd46e7c8983ec7ea9444a03fc3a770510b47f03",
+    "zh:790d0b9bc941d1953a739da5426b6a5efa4db97a9c4bb30c52019536abc40661",
+    "zh:7b89c7cf131a33604a9b8c3fd7a94b28446beba633bbf52e6e37ea3fef643421",
+    "zh:7e59eb91e253a3f04b40e1e0b45b027fed0e69fed78cd996788a23d92f02137d",
+    "zh:9caf1c13d1c6ed6a3b7aa11a61b56623b6bd30a6a1e396558c3dbe82370f34f5",
+    "zh:ba5b46ae242953fbec32f9f93dc5a81fd2e6962df68f17c670c0533040c74b42",
+    "zh:cae081982d5931ad265223c09824f2b3cd58a1fe307ccc701188d688ad217e6e",
+    "zh:cda2545056b6028d84505b18aaf20e7c769f6665fe27e16d2c52e35d23840689",
+    "zh:e41f2b9901202cb2cf7929005340ffc498ab1ca813005e364af4016a85634b5e",
+    "zh:e84272077a0287bc68523134292d9b12af54e200e413a89ae37f5788c063de5d",
+  ]
+}
+
+provider "registry.opentofu.org/maxlaverse/bitwarden" {
+  version     = "0.13.6"
+  constraints = ">= 0.13.6"
+  hashes = [
+    "h1:WTSDFVmPxY92/9kJbgTyKmwENDxf4nc2SNe8PcvRd/U=",
+    "zh:0548cf354bd65bb146e63db28fe3c6ab9339118f0255271886d8088325c7a044",
+    "zh:1eb2f8b07da17acb0cf9fde60b15facfe599faaf912b0a540ad18629e6fd76eb",
+    "zh:2f58bcce32cb8082f0627f7ca12925d73e0c9a2fe9501a6060dfa90472a5ddc3",
+    "zh:2fea04c23e1333a7682538033dc87be2df7ed55226c3972e62600e434ea1e3de",
+    "zh:34cf36acad9a731bdce793995ffd539b3578a4e15cf04e59faf8de884e585ec0",
+    "zh:3516e5d815938b87749bdb427971955b875e1e0dd051f180988a8731cc0ca2ec",
+    "zh:578b199ac64e8ecef439a15c4d0b5be42fee3872706ca1789842e3471cb59b0c",
+    "zh:6ac028d60fb9fd9dc8115888786224f38f59807d0971ed6e8ac3882eb5dbf680",
+    "zh:743f1fd4933d9bfae0256921326649d5139a7023040d86c36cc48a1a4a8f04fc",
+    "zh:893bafe00218cd5352c176c54cef573d709705f8d569ae49fd0e7eaf0c8f7d44",
+    "zh:a45c56bb6cde3070ca1e3d2f500811f585f9c2cd1cc337c2c1e50e6283cdc86f",
+    "zh:c39941a88c19ff15a55fcf88cdb98fbc917355db7e7100f6c9beff8016d15a1d",
+    "zh:dc5e6fbb1a06134233ebc42bfbb1a7979aac5625c186f8ead5d28295cfbd0cb1",
+    "zh:f809ab383cca0a5f83072981c64208cbd7fa67e986a86ee02dd2c82333221e32",
+    "zh:ffec18112906046d45ffd1bb0fbd8387e99e4b8834c215ad0d5790bc71df450f",
+  ]
+}

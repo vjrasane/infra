@@ -1,0 +1,25 @@
+key "tsig-key" {
+    algorithm hmac-sha256;
+    secret "${tsig_key}";
+};
+
+acl internal {
+    ${acl_ips}
+};
+
+options {
+    forwarders {
+        1.1.1.1;
+        8.8.8.8;
+    };
+
+    allow-query {
+        internal;
+    };
+};
+
+zone "${domain}" {
+    type master;
+    file "/etc/bind/zone.conf";
+    update-policy { grant tsig-key zonesub any; };
+};

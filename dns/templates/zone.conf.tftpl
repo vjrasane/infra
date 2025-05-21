@@ -1,0 +1,13 @@
+$TTL 2d
+
+$ORIGIN ${domain}.
+
+@               IN      SOA     ns.${domain}. ${email}. (
+                        2025050721  ; serial
+                        12h         ; refresh
+                        15m         ; retry
+                        3w          ; expire
+                        2h          ; minimum ttl
+                        )
+
+                IN      NS      ns.${domain}.
