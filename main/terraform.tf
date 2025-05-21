@@ -1,3 +1,13 @@
+variable "backend_bucket" {
+  description = "Backend bucket name"
+  type        = string
+}
+
+variable "backend_key" {
+  description = "Backend key name"
+  type        = string
+}
+
 terraform {
   required_providers {
     proxmox = {
@@ -12,10 +22,16 @@ terraform {
     ansible = {
       source = "ansible/ansible"
     }
+
+    flux = {
+      source  = "fluxcd/flux"
+      version = "1.5.1"
+    }
   }
 
   encryption {
     key_provider "pbkdf2" "passphrase" {
+      # passphrase = var.state_passphrase
       passphrase = "<default>"
     }
 
@@ -37,8 +53,8 @@ terraform {
   backend "s3" {
     region   = "eu-central-003"
     endpoint = "s3.eu-central-003.backblazeb2.com"
-    bucket   = "karkkinet-terraform-state"
-    key      = "homelab.tfstate"
+    bucket   = var.backend_bucket
+    key      = var.backend_key
 
     skip_metadata_api_check     = true
     skip_requesting_account_id  = true

@@ -57,7 +57,7 @@ locals {
 module "proxmox_lxc" {
   count = length(local.pm_lxc_ips)
 
-  source = "./modules/proxmox_lxc"
+  source = "../modules/proxmox_lxc"
 
   pm_ip        = local.pm_ip
   pm_node_name = local.pm_node_name

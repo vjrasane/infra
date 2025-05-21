@@ -5,6 +5,7 @@
 * pre-commit
 * opentofu
 * bws
+* flux
 
 ## Setup
 

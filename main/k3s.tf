@@ -12,7 +12,7 @@ locals {
 }
 
 module "k3s_master" {
-  source = "./modules/k3s_master"
+  source = "../modules/k3s_master"
 
   lxc_ip              = module.proxmox_lxc[0].lxc_ip
   lxc_password        = module.proxmox_lxc[0].lxc_password
@@ -24,7 +24,7 @@ module "k3s_master" {
 
 module "k3s_server" {
   count  = length(local.pm_lxc_ips) - 1
-  source = "./modules/k3s_server"
+  source = "../modules/k3s_server"
 
   lxc_ip       = module.proxmox_lxc[count.index + 1].lxc_ip
   lxc_password = module.proxmox_lxc[count.index + 1].lxc_password
