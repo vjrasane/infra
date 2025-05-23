@@ -3,10 +3,6 @@ resource "docker_image" "bind9" {
   name = "ubuntu/bind9:latest"
 }
 
-resource "docker_network" "bind9" {
-  name = "bind9"
-}
-
 data "bitwarden_secret" "rpi_user" {
   key = "rpi_user"
 }
@@ -49,6 +45,7 @@ resource "docker_volume" "bind9" {
     content = templatefile("${path.module}/templates/zone.conf.tftpl", {
       domain = local.home_domain
       email  = "admin@${data.bitwarden_secret.cloudflare_domain.value}"
+      nameserver_ip = var.rpi_ip
     })
     destination = "/tmp/zone.conf"
   }
@@ -86,9 +83,7 @@ resource "docker_container" "bind9" {
     protocol = "udp"
   }
 
-  networks_advanced {
-    name = docker_network.bind9.name
-  }
+  network_mode = "host"
 
   restart = "unless-stopped"
 

@@ -32,10 +32,12 @@ variable "k3s_metallb_ip_pool" {
 }
 
 module "prepare_k3s_lxc" {
-  source = "../k3s_lxc"
+  source = "../ansible_playbook"
 
-  lxc_ip       = var.lxc_ip
-  lxc_password = var.lxc_password
+  hostname   = var.lxc_ip
+  playbook   = "${path.module}/../k3s_lxc/prepare_k3s_lxc.yaml"
+  replayable = false
+  password   = var.lxc_password
 }
 
 module "install_k3s" {
@@ -43,7 +45,7 @@ module "install_k3s" {
 
   hostname   = var.lxc_ip
   playbook   = "${path.module}/install_k3s_master.yaml"
-  replayable = true
+  replayable = false
   password   = var.lxc_password
 
   extra_vars = {

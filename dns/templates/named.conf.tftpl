@@ -1,6 +1,12 @@
 key "tsig-key" {
-    algorithm hmac-sha256;
-    secret "${tsig_key}";
+        algorithm hmac-sha256;
+        secret "${tsig_key}";
+};
+
+acl docker {
+    172.23.0.0/16;
+    172.24.0.0/16;
+    172.25.0.0/16;
 };
 
 acl internal {
@@ -15,11 +21,12 @@ options {
 
     allow-query {
         internal;
+        docker;
     };
 };
 
 zone "${domain}" {
     type master;
     file "/etc/bind/zone.conf";
-    update-policy { grant tsig-key zonesub any; };
+    update-policy { grant tsig-key subdomain ${domain}. ANY; };
 };

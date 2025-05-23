@@ -97,6 +97,10 @@ output "lxc_password" {
   sensitive = true
 }
 
+output "lxc_name" {
+  value = proxmox_lxc.lxc.hostname
+}
+
 output "lxc_ip" {
   value = var.lxc_ip
 }

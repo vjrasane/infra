@@ -28,16 +28,19 @@ variable "lxc_password" {
 }
 
 module "prepare_k3s_lxc" {
-  source = "../k3s_lxc"
+  source = "../ansible_playbook"
 
-  lxc_ip       = var.lxc_ip
-  lxc_password = var.lxc_password
+  hostname   = var.lxc_ip
+  playbook   = "${path.module}/../k3s_lxc/prepare_k3s_lxc.yaml"
+  replayable = false
+  password   = var.lxc_password
 }
 
 module "install_k3s" {
   source   = "../ansible_playbook"
   hostname = var.lxc_ip
   password = var.lxc_password
+  replayable = false
   playbook = "${path.module}/install_k3s_server.yaml"
   extra_vars = {
     k3s_vip   = var.k3s_vip

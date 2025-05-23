@@ -71,3 +71,9 @@ module "proxmox_lxc" {
 
   public_key_openssh = tls_private_key.lxc_ssh_key.public_key_openssh
 }
+
+output "pm_lxc_containers" {
+  value = {
+    for container in module.proxmox_lxc : container.lxc_name => container.lxc_ip
+  }
+}

@@ -40,6 +40,12 @@ terraform {
       enforced = true
       method   = method.aes_gcm.encrypt
     }
+
+    remote_state_data_sources {
+      default {
+        method = method.aes_gcm.encrypt
+      }
+    }
   }
 
   backend "s3" {
