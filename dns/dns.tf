@@ -38,3 +38,12 @@ resource "dns_a_record_set" "lxc" {
 
   depends_on = [docker_container.bind9]
 }
+
+resource "dns_a_record_set" "k3s" {
+  zone      = "${local.home_domain}."
+  name      = "k3s"
+  addresses = [local.k3s_vip]
+  ttl       = 300
+
+  depends_on = [docker_container.bind9]
+}

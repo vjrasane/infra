@@ -44,3 +44,7 @@ resource "bitwarden_secret" "k3s_kube_config" {
   project_id = resource.bitwarden_project.automated.id
   note       = "K3s kube config"
 }
+
+output "k3s_vip" {
+  value = local.k3s_vip
+}

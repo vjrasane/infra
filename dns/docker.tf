@@ -71,18 +71,6 @@ resource "docker_container" "bind9" {
     container_path = "/etc/bind"
   }
 
-  ports {
-    internal = 53
-    external = 53
-    protocol = "tcp"
-  }
-
-  ports {
-    internal = 53
-    external = 53
-    protocol = "udp"
-  }
-
   network_mode = "host"
 
   restart = "unless-stopped"
