@@ -27,7 +27,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: bitwarden
-        namespace: flux-system
+        namespace: sm-operator-system
   values:
     bwSecretsManagerRefreshInterval: 180
     cloudRegion: EU
