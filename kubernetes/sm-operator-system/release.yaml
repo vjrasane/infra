@@ -7,7 +7,7 @@ spec:
   interval: 1h
   chart:
     spec:
-      chart: bitwarden/sm-operator
+      chart: sm-operator
       version: 1.0.0
       sourceRef:
         kind: HelmRepository
