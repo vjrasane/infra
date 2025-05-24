@@ -1,5 +1,5 @@
 
-# resource "flux_bootstrap_git" "flux" {
-#   embedded_manifests = false
-#   path               = "cluster"
-# }
+resource "flux_bootstrap_git" "flux" {
+  embedded_manifests = false
+  path               = "kubernetes"
+}

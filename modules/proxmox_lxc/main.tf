@@ -89,6 +89,8 @@ module "configure_lxc" {
   playbook = "${path.module}/configure_lxc.yaml"
   password = var.lxc_password
 
+  replayable = false
+
   depends_on = [proxmox_lxc.lxc]
 }
 

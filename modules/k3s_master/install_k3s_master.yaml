@@ -57,6 +57,7 @@
           --disable servicelb
           --flannel-iface eth0
           --tls-san {{ k3s_vip }}
+          --tls-san {{ k3s_fqdn }}
           --node-ip {{ ansible_host }}
           --cluster-init
         creates: /usr/local/bin/k3s-uninstall.sh
