@@ -20,13 +20,11 @@ spec:
   chart:
     spec:
       chart: traefik
-      version: 3.4.0
+      version: 35.4.0
       sourceRef:
         kind: HelmRepository
         name: traefik
         namespace: traefik
-  install:
-    crds: CreateReplace
   values:
     ingressClass:
       enabled: true
