@@ -47,6 +47,22 @@ data "bitwarden_secret" "flux_github_token" {
   key = "flux_github_token"
 }
 
+locals {
+  kubernetes_host = "https://${local.k3s_vip}:6443"
+  kube_config = {
+    client_certificate     = module.k3s_master.kube_config.client_certificate
+    client_key             = module.k3s_master.kube_config.client_key
+    cluster_ca_certificate = module.k3s_master.kube_config.cluster_ca_certificate
+  }
+}
+
+provider "kubernetes" {
+  host                   = "https://${local.k3s_vip}:6443"
+  client_certificate     = local.kube_config.client_certificate
+  client_key             = local.kube_config.client_key
+  cluster_ca_certificate = local.kube_config.cluster_ca_certificate
+}
+
 provider "flux" {
   git = {
     url = data.bitwarden_secret.flux_github_repo.value
