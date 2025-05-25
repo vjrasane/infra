@@ -26,4 +26,4 @@ spec:
         name: cert-manager
         namespace: cert-manager
   values:
-    installCRDs: "true"
+    installCRDs: true
