@@ -47,3 +47,12 @@ resource "dns_a_record_set" "k3s" {
 
   depends_on = [docker_container.bind9]
 }
+
+resource "dns_a_record_set" "webserver" {
+  zone      = "${local.home_domain}."
+  name      = "webserver"
+  addresses = ["192.168.1.220"]
+  ttl       = 300
+
+  depends_on = [docker_container.bind9]
+}

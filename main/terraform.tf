@@ -27,6 +27,16 @@ terraform {
       source  = "fluxcd/flux"
       version = "1.5.1"
     }
+
+    gpg = {
+      source  = "olivr/gpg"
+      version = "0.2.1"
+    }
+
+    sops = {
+      source  = "x0ddf/sops"
+      version = "0.6.10"
+    }
   }
 
   encryption {

@@ -1,3 +1,4 @@
----
-creation_rules:
-  - age: "age1dqcj9fna0m8nr4klvxjclzzshyncw32suzzw30zpkrk8e2tj05dsmp6xwc" # pragma: allowlist secret
+"creation_rules":
+- "encrypted_regex": "^(auth-token)$"
+  "path_regex": ".*\\.ya?ml$"
+  "pgp": "16faf2c055378d5b8f53f93958078e2903644c30"
