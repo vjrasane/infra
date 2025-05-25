@@ -4,10 +4,6 @@ metadata:
   name: infra
   namespace: flux-system
 spec:
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-gpg
   interval: 1m
   retryInterval: 1m
   timeout: 5m
