@@ -4,5 +4,6 @@ kind: Kustomization
 namespace: cert-manager
 
 resources:
+  - ../../secrets
   - cert-manager.yaml
   - cluster-issuer.yaml
