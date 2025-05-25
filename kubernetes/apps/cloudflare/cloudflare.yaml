@@ -1,13 +1,7 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cloudflare
----
 apiVersion: k8s.bitwarden.com/v1
 kind: BitwardenSecret
 metadata:
   name: cloudflare
-  namespace: cloudflare
 spec:
   organizationId: "60ceb718-168e-4c92-acbc-b2dc012f1217"
   secretName: cloudflare # pragma: allowlist secret
@@ -20,13 +14,12 @@ spec:
       secretKeyName: domain # pragma: allowlist secret
   authToken:
     secretName: bw-auth-token # pragma: allowlist secret
-    secretKey: token # pragma: allowlist secret
+    secretKey: auth-token # pragma: allowlist secret
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: cloudflare-ddns
-  namespace: cloudflare
 spec:
   schedule: "*/5 * * * *"
   successfulJobsHistoryLimit: 1
