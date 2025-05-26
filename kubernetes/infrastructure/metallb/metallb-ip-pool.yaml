@@ -14,8 +14,8 @@ metadata:
   name: metallb-dual-stack-pool
 spec:
   addresses:
-    - 192.168.1.222
-    - 2001:14ba:700e:0c00:1144:dcf2:fdb9:b676
+    - 192.168.1.222-192.168.1.230
+    - 2001:14ba:700e:0c00:1144:dcf2:fdb9:b676-2001:14ba:700e:0c00:1144:dcf2:fdb9:b67f
   autoAssign: true
 ---
 apiVersion: metallb.io/v1beta1
