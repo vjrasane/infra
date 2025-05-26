@@ -44,8 +44,8 @@ spec:
   type: LoadBalancer
   ipFamilyPolicy: PreferDualStack
   ipFamilies:
-    - ipv4
-    - ipv6
+    - IPv4
+    - IPv6
   ports:
     - name: bind9-tcp
       protocol: TCP
@@ -65,8 +65,8 @@ spec:
   type: LoadBalancer
   ipFamilyPolicy: PreferDualStack
   ipFamilies:
-    - ipv4
-    - ipv6
+    - IPv4
+    - IPv6
   ports:
     - name: bind9-udp
       protocol: UDP
