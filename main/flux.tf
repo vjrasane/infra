@@ -20,25 +20,6 @@ resource "flux_bootstrap_git" "flux" {
 
   depends_on = [module.k3s_master, module.k3s_server]
 }
-# module "flux" {
-#   source = "../modules/flux"
-
-#   lxc_config = {
-#     ip       = local.k3s_master.config.ip
-#     user     = "root"
-#     password = local.k3s_master.config.password
-#   }
-
-#   flux_config = {
-#     repository = "infra"
-#     username   = "vjrasane"
-#     branch     = "main"
-#     path       = "kubernetes/cluster"
-#     token      = data.bitwarden_secret.flux_github_token.value
-#   }
-
-#   depends_on = [module.k3s_master, kubernetes_secret.sops_gpg]
-# }
 
 resource "gpg_private_key" "sops_gpg" {
   name     = "cluster0.${data.bitwarden_secret.cloudflare_domain.value}"
@@ -49,6 +30,10 @@ resource "gpg_private_key" "sops_gpg" {
 resource "local_file" "sops_public_key" {
   filename = "${path.module}/../sops.pub"
   content  = gpg_private_key.sops_gpg.public_key
+}
+
+data "bitwarden_secret" "bw_auth_token" {
+  key = "BW_AUTH_TOKEN"
 }
 
 resource "local_file" "sops_yaml" {
