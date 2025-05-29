@@ -73,3 +73,9 @@ terraform {
     skip_credentials_validation = true
   }
 }
+
+variable "dev" {
+  description = "Enable development mode"
+  type        = bool
+  default     = false
+}

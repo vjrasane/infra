@@ -1,34 +1,12 @@
 
-data "bitwarden_secret" "pm_lxc_ips" {
-  key = "pm_lxc_ips"
-}
 
-locals {
-  pm_lxc_ips = jsondecode(data.bitwarden_secret.pm_lxc_ips.value)
-}
-
-resource "tls_private_key" "lxc_ssh_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "random_password" "lxc_password" {
-  length  = 16
-  special = true
-}
-
-resource "bitwarden_secret" "lxc_password" {
-  key        = "lxc_password"
-  value      = random_password.lxc_password.result
-  project_id = resource.bitwarden_project.automated.id
-  note       = "LXC password for Proxmox"
-}
-
-resource "bitwarden_secret" "lxc_ssh_key" {
-  key        = "lxc_ssh_key"
-  value      = tls_private_key.lxc_ssh_key.private_key_pem
-  project_id = resource.bitwarden_project.automated.id
-  note       = "SSH key for LXC containers"
+variable "lxcs" {
+  description = "LXC container configurations"
+  type = list(object({
+    vmid        = number
+    ip          = string
+    ip6         = string
+  }))
 }
 
 data "bitwarden_secret" "pm_node_name" {
@@ -55,7 +33,7 @@ locals {
 }
 
 module "proxmox_lxc" {
-  count = length(local.pm_lxc_ips)
+  for_each = { for lxc in var.lxcs: lxc.vmid => lxc}
 
   source = "../modules/proxmox_lxc"
 
@@ -64,16 +42,18 @@ module "proxmox_lxc" {
   pm_user      = local.pm_user
   pm_password  = local.pm_password
 
-  lxc_ip              = local.pm_lxc_ips[count.index]
-  lxc_vmid            = 100 + count.index
-  lxc_default_gateway = local.pm_lxc_gateway
-  lxc_password        = random_password.lxc_password.result
+  lxc_password = var.dev ? "password" : ""
 
-  public_key_openssh = tls_private_key.lxc_ssh_key.public_key_openssh
+  ip_gateway = local.pm_lxc_gateway
+
+  config = each.value
+}
+
+locals {
+  lxcs = values(module.proxmox_lxc)
 }
 
 output "pm_lxc_containers" {
-  value = {
-    for container in module.proxmox_lxc : container.lxc_name => container.lxc_ip
-  }
+  value = local.lxcs
+  sensitive = true
 }

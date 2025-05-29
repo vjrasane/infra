@@ -42,6 +42,10 @@ metadata:
     metallb.universe.tf/loadBalancerIPs: 192.168.1.222,2001:14ba:700e:0c00:1144:dcf2:fdb9:b676
 spec:
   type: LoadBalancer
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies:
+    - IPv4
+    - IPv6
   ports:
     - name: bind9-tcp
       protocol: TCP
@@ -59,6 +63,10 @@ metadata:
     metallb.universe.tf/loadBalancerIPs: 192.168.1.222,2001:14ba:700e:0c00:1144:dcf2:fdb9:b676
 spec:
   type: LoadBalancer
+  ipFamilyPolicy: RequireDualStack
+  ipFamilies:
+    - IPv4
+    - IPv6
   ports:
     - name: bind9-udp
       protocol: UDP

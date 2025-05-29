@@ -1,7 +1,5 @@
 #!/bin/bash -e
 
-vmid="${1}"
-
 files_dir="/tmp/files"
 
 pct stop "${vmid}" || true
@@ -10,11 +8,12 @@ until (pct status "${vmid}" | grep -q "stopped"); do
   sleep 1
 done
 
-cat <<-EOF >> /etc/pve/lxc/${vmid}.conf
+cat <<-EOF >>/etc/pve/lxc/${vmid}.conf
+features: keyctl=1,nesting=1
 lxc.apparmor.profile: unconfined
 lxc.cgroup.devices.allow: a
 lxc.cap.drop:
-lxc.mount.auto: "proc:rw sys:rw"
+lxc.mount.auto: "proc:rw sys:rw cgroup:rw"
 
 lxc.cgroup2.devices.allow: c 10:200 rwm
 lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
@@ -28,7 +27,11 @@ done
 
 pct exec "${vmid}" -- sed -i 's/.*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 pct exec "${vmid}" -- sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-pct exec "${vmid}" -- systemctl restart sshd
+
+until pct exec "${vmid}" -- systemctl restart sshd 2>/dev/null; do
+  echo "SSH unit not ready yet; retrying in 1 s…"
+  sleep 1
+done
 
 until [[ -n $(lxc-info -n "${vmid}" -iH) ]]; do
   echo "Waiting for VM ${vmid} to receive an IP..."

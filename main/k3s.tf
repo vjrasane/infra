@@ -2,35 +2,50 @@ data "bitwarden_secret" "k3s_vip" {
   key = "k3s_vip"
 }
 
-data "bitwarden_secret" "k3s_metallb_address_range" {
-  key = "k3s_metallb_address_range"
+data "bitwarden_secret" "cloudflare_domain" {
+  key = "cloudflare_domain"
 }
 
 locals {
-  k3s_vip                   = data.bitwarden_secret.k3s_vip.value
-  k3s_metallb_address_range = data.bitwarden_secret.k3s_metallb_address_range.value
+  k3s_master       = local.lxcs[0]
+  k3s_servers      = slice(local.lxcs, 1, length(local.lxcs))
+  k3s_vip          = data.bitwarden_secret.k3s_vip.value
+  k3s_fqdn         = "k3s.home.${data.bitwarden_secret.cloudflare_domain.value}"
+  k3s_cluster_cidr = "10.42.0.0/16,2001:cafe:42::/112"
+  k3s_service_cidr = "10.43.0.0/16,2001:cafe:43::/112"
 }
 
 module "k3s_master" {
   source = "../modules/k3s_master"
 
-  lxc_ip              = module.proxmox_lxc[0].lxc_ip
-  lxc_password        = module.proxmox_lxc[0].lxc_password
-  k3s_vip             = local.k3s_vip
-  k3s_metallb_ip_pool = local.k3s_metallb_address_range
+  lxc_config = {
+    ip       = local.k3s_master.config.ip
+    ip6      = local.k3s_master.config.ip
+    user     = "root"
+    password = local.k3s_master.config.password
+  }
+  k3s_config = {
+    vip          = local.k3s_vip
+    fqdn         = local.k3s_fqdn
+    cluster_cidr = local.k3s_cluster_cidr
+    service_cidr = local.k3s_service_cidr
+  }
 
   depends_on = [module.proxmox_lxc]
 }
 
 module "k3s_server" {
-  count  = length(local.pm_lxc_ips) - 1
-  source = "../modules/k3s_server"
+  for_each = { for lxc in local.k3s_servers : lxc.config.vmid => lxc }
+  source   = "../modules/k3s_server"
 
-  lxc_ip       = module.proxmox_lxc[count.index + 1].lxc_ip
-  lxc_password = module.proxmox_lxc[count.index + 1].lxc_password
+  lxc_ip       = each.value.config.ip
+  lxc_ip6      = each.value.config.ip6
+  lxc_password = each.value.config.password
 
-  k3s_vip   = local.k3s_vip
-  k3s_token = module.k3s_master.k3s_token
+  k3s_vip          = module.k3s_master.vip
+  k3s_token        = module.k3s_master.k3s_token
+  k3s_cluster_cidr = local.k3s_cluster_cidr
+  k3s_service_cidr = local.k3s_service_cidr
 
   depends_on = [module.k3s_master]
 }
@@ -45,6 +60,14 @@ resource "bitwarden_secret" "k3s_kube_config" {
   note       = "K3s kube config"
 }
 
-output "k3s_vip" {
-  value = local.k3s_vip
+output "config" {
+  value = {
+    vip  = local.k3s_vip
+    fqdn = local.k3s_fqdn
+  }
+}
+
+output "kube_config" {
+  value = module.k3s_master.kube_config
+  sensitive = true
 }
