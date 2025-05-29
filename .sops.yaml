@@ -1,0 +1,4 @@
+"creation_rules":
+- "encrypted_regex": "^(auth-token)$"
+  "path_regex": ".*\\.ya?ml$"
+  "pgp": "119e3379d5ac2a9a8925facf0c8c4fa40a6f2682"

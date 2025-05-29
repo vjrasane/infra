@@ -39,7 +39,6 @@ if [[ ! -f /usr/local/bin/k3s-uninstall.sh ]]; then
         --flannel-iface eth0 \
         --tls-san "${vip}" \
         --tls-san "${fqdn}" \
-        --kube-controller-manager-arg=node-cidr-mask-size-ipv6=112 \
         --cluster-cidr "${cluster_cidr}" \
         --service-cidr "${service_cidr}" \
         --node-ip "${node_ip}" \

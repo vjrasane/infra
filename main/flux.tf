@@ -1,3 +1,4 @@
+
 resource "kubernetes_secret" "sops_gpg" {
   metadata {
     name      = "sops-gpg"
@@ -9,6 +10,8 @@ resource "kubernetes_secret" "sops_gpg" {
   }
 
   type = "Opaque"
+
+  depends_on = [local.k3s_master, module.k3s_server, flux_bootstrap_git.flux]
 }
 
 resource "flux_bootstrap_git" "flux" {

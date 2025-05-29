@@ -11,7 +11,7 @@ locals {
   k3s_servers      = slice(local.lxcs, 1, length(local.lxcs))
   k3s_vip          = data.bitwarden_secret.k3s_vip.value
   k3s_fqdn         = "k3s.home.${data.bitwarden_secret.cloudflare_domain.value}"
-  k3s_cluster_cidr = "10.42.0.0/16,2001:cafe:42::/112"
+  k3s_cluster_cidr = "10.42.0.0/16,2001:cafe:42::/56"
   k3s_service_cidr = "10.43.0.0/16,2001:cafe:43::/112"
 }
 
@@ -20,7 +20,7 @@ module "k3s_master" {
 
   lxc_config = {
     ip       = local.k3s_master.config.ip
-    ip6      = local.k3s_master.config.ip
+    ip6      = local.k3s_master.config.ip6
     user     = "root"
     password = local.k3s_master.config.password
   }
