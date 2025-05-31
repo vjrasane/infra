@@ -50,12 +50,16 @@ module "k3s_server" {
   depends_on = [module.k3s_master]
 }
 
+locals {
+  kube_config_yaml = replace(module.k3s_master.kube_config.content,
+    "server: https://127.0.0.1:6443",
+    "server: ${local.kubernetes_host}"
+  )
+}
+
 resource "bitwarden_secret" "k3s_kube_config" {
   key = "k3s_kube_config"
-  value = replace(module.k3s_master.kube_config.content,
-    "server: https://127.0.0.1:6443",
-    "server: https://${local.k3s_vip}:6443"
-  )
+  value = local.kube_config_yaml
   project_id = resource.bitwarden_project.automated.id
   note       = "K3s kube config"
 }
@@ -65,9 +69,4 @@ output "config" {
     vip  = local.k3s_vip
     fqdn = local.k3s_fqdn
   }
-}
-
-output "kube_config" {
-  value = module.k3s_master.kube_config
-  sensitive = true
 }

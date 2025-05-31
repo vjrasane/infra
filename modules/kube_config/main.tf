@@ -44,7 +44,8 @@ output "config" {
     server                 = local.cluster_config["server"]
     client_key             = base64decode(local.user_config["client-key-data"])
     client_certificate     = base64decode(local.user_config["client-certificate-data"])
-    cluster_ca_certificate = base64decode(local.cluster_config["certificate-authority-data"])
+    cluster_ca_certificate = base64decode(yamldecode(module.get_kube_config.result)["clusters"][0]["cluster"]["certificate-authority-data"])
+    # cluster_ca_certificate = base64decode(local.cluster_config["certificate-authority-data"])
   }
   sensitive = true
 }

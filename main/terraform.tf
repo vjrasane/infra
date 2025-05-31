@@ -28,9 +28,9 @@ terraform {
       version = "1.5.1"
     }
 
-    gpg = {
-      source  = "olivr/gpg"
-      version = "0.2.1"
+    age = {
+      source = "clementblaise/age"
+      version = "0.1.1"
     }
 
     sops = {

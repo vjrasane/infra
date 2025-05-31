@@ -1,12 +1,16 @@
 
-resource "kubernetes_secret" "sops_gpg" {
+resource "age_secret_key" "sops_age_key" {
+
+}
+
+resource "kubernetes_secret" "sops_age_key" {
   metadata {
-    name      = "sops-gpg"
+    name      = "sops-age-key"
     namespace = "flux-system"
   }
 
   data = {
-    "sops.asc" = gpg_private_key.sops_gpg.private_key
+    "sops.agekey" = age_secret_key.sops_age_key.secret_key
   }
 
   type = "Opaque"
@@ -21,19 +25,8 @@ resource "flux_bootstrap_git" "flux" {
   depends_on = [module.k3s_master, module.k3s_server]
 }
 
-resource "gpg_private_key" "sops_gpg" {
-  name     = "cluster0.${data.bitwarden_secret.cloudflare_domain.value}"
-  email    = "admin@${data.bitwarden_secret.cloudflare_domain.value}"
-  rsa_bits = 4096
-}
-
-resource "local_file" "sops_public_key" {
-  filename = "${path.module}/../sops.pub"
-  content  = gpg_private_key.sops_gpg.public_key
-}
-
 data "bitwarden_secret" "bw_auth_token" {
-  key = "BW_AUTH_TOKEN"
+  key = "BWS_ACCESS_TOKEN"
 }
 
 resource "local_file" "sops_yaml" {
@@ -41,10 +34,25 @@ resource "local_file" "sops_yaml" {
   content = yamlencode({
     creation_rules = [
       {
-        pgp             = gpg_private_key.sops_gpg.fingerprint
+        age             = age_secret_key.sops_age_key.public_key
         path_regex      = ".*\\.ya?ml$"
         encrypted_regex = "^(auth-token)$"
       }
     ]
   })
+
+  depends_on = [ age_secret_key.sops_age_key ]
+}
+
+resource "sops_file" "bw_auth_token" {
+  encryption_type = "age"
+  content = templatefile("${path.module}/templates/bw-auth-token.yaml.tftpl", {
+    auth_token = data.bitwarden_secret.bw_auth_token.value
+  })
+  filename = "${path.module}/../kubernetes/secrets/bw-auth-token.yaml"
+  age = {
+    key = age_secret_key.sops_age_key.public_key
+  }
+
+  depends_on = [ local_file.sops_yaml, age_secret_key.sops_age_key ]
 }

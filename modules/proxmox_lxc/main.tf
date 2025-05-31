@@ -39,9 +39,9 @@ variable "ip_gateway" {
 }
 
 variable "lxc_password" {
-  type = string
+  type      = string
   sensitive = true
-  default = ""
+  default   = ""
 }
 
 resource "random_password" "lxc_password" {
@@ -106,80 +106,8 @@ resource "proxmox_lxc" "lxc" {
   }
 
   ssh_public_keys = tls_private_key.lxc_ssh_key.public_key_openssh
-
-  # connection {
-  #   host     = var.pm_ip
-  #   user     = var.pm_user
-  #   password = var.pm_password
-  # }
-
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "rm -f /tmp/patch_lxc_config.sh || true",
-  #   ]
-  # }
-
-  # provisioner "file" {
-  #   source      = "${path.module}/patch_lxc_config.sh"
-  #   destination = "/tmp/patch_lxc_config.sh"
-  # }
-
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "chmod +x /tmp/patch_lxc_config.sh",
-  #     "/tmp/patch_lxc_config.sh ${self.vmid}",
-  #     "rm -f /tmp/patch_lxc_config.sh",
-  #   ]
-  # }
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "rm -f /tmp/configure_lxc.sh || true",
-  #   ]
-
-  #   connection {
-  #     host        = var.config.ip
-  #     user        = "root"
-  #     private_key = tls_private_key.lxc_ssh_key.private_key_pem
-  #   }
-  # }
-
-  # provisioner "file" {
-  #   source      = "${path.module}/configure_lxc.sh"
-  #   destination = "/tmp/configure_lxc.sh"
-
-  #   connection {
-  #     host        = var.config.ip
-  #     user        = "root"
-  #     private_key = tls_private_key.lxc_ssh_key.private_key_pem
-  #   }
-  # }
-
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "chmod +x /tmp/configure_lxc.sh",
-  #     "/tmp/configure_lxc.sh",
-  #     "rm -f /tmp/configure_lxc.sh",
-  #   ]
-
-  #   connection {
-  #     host        = var.config.ip
-  #     user        = "root"
-  #     private_key = tls_private_key.lxc_ssh_key.private_key_pem
-  #   }
-  # }
 }
 
-# module "configure_lxc" {
-#   source = "../ansible_playbook"
-
-#   hostname = var.config.ip
-#   playbook = "${path.module}/configure_lxc.yaml"
-#   password = proxmox_lxc.lxc.password
-
-#   replayable = false
-
-#   depends_on = [proxmox_lxc.lxc]
-# }
 
 locals {
   lxc_connection = {
@@ -205,7 +133,7 @@ module "patch_lxc_config" {
   })
 
   triggers = {
-   name     = proxmox_lxc.lxc.hostname
+    name = proxmox_lxc.lxc.hostname
   }
 
   depends_on = [proxmox_lxc.lxc]
@@ -219,151 +147,11 @@ module "configure_lxc" {
   script = file("${path.module}/scripts/configure_lxc.sh")
 
   triggers = {
-    name     = proxmox_lxc.lxc.hostname
+    name = proxmox_lxc.lxc.hostname
   }
 
   depends_on = [module.patch_lxc_config]
 }
-
-# module "set_timezone" {
-#   source = "../remote"
-
-#   connection = local.lxc_connection
-
-#   script = <<-EOT
-#     current_tz="$(timedatectl show --property=Timezone --value)"
-#     if [[ "$current_tz" != "$TIMEZONE" ]]; then
-#         timedatectl set-timezone "$TIMEZONE"
-#     fi
-#   EOT
-
-#   triggers = {
-#     password = local.lxc_connection.password
-#   }
-
-#   depends_on = [module.patch_lxc_config]
-# }
-
-# module "install_packages" {
-#   source = "../remote"
-
-#   connection = local.lxc_connection
-
-#   script = <<-EOT
-#     apt-get update -y >/dev/null
-#     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-#         curl jq \
-#         nfs-common open-iscsi cryptsetup
-#   EOT
-
-#   triggers = {
-#     password = local.lxc_connection.password
-#   }
-
-#   depends_on = [module.patch_lxc_config]
-# }
-
-# module "sysctl" {
-#   source = "../remote"
-
-#   connection = local.lxc_connection
-
-#   script = <<-EOT
-#     SYSCTL_FILE="/etc/sysctl.d/99-forwarding.conf"
-#     cat >"$SYSCTL_FILE" <<'EOF'
-#     net.ipv4.ip_forward = 1
-#     net.ipv6.conf.all.forwarding = 1
-#     net.ipv6.conf.all.accept_ra = 2
-#     EOF
-#     sysctl --system # apply now
-#   EOT
-
-#   triggers = {
-#     password = local.lxc_connection.password
-#   }
-
-#   depends_on = [module.patch_lxc_config]
-# }
-
-# module "conf-kmsg" {
-#   source = "../remote"
-
-#   connection = local.lxc_connection
-
-#   script = <<-EOT
-#     KMSG_SCRIPT="/usr/local/bin/conf-kmsg.sh"
-#     KMSG_UNIT="/etc/systemd/system/conf-kmsg.service"
-
-#     install -m 0755 -o root -g root /dev/stdin "$KMSG_SCRIPT" <<'EOF'
-#     #!/bin/sh -e
-#     if [ ! -e /dev/kmsg ]; then
-#         ln -s /dev/console /dev/kmsg
-#     fi
-#     mount --make-rshared /
-#     EOF
-
-#     install -m 0644 -o root -g root /dev/stdin "$KMSG_UNIT" <<'EOF'
-#     [Unit]
-#     Description=Make sure /dev/kmsg exists
-
-#     [Service]
-#     Type=simple
-#     RemainAfterExit=yes
-#     ExecStart=/usr/local/bin/conf-kmsg.sh
-#     TimeoutStartSec=0
-
-#     [Install]
-#     WantedBy=default.target
-#     EOF
-
-#     systemctl daemon-reload
-#     systemctl enable --now conf-kmsg.service
-#   EOT
-
-#   triggers = {
-#     password = local.lxc_connection.password
-#   }
-
-#   depends_on = [module.patch_lxc_config]
-# }
-
-# module "iscsid" {
-#   source = "../remote"
-
-#   connection = local.lxc_connection
-
-#   script = <<-EOT
-#     systemctl enable --now iscsid.service
-#   EOT
-
-#   triggers = {
-#     password = local.lxc_connection.password
-#   }
-
-#   depends_on = [module.patch_lxc_config, module.install_packages]
-# }
-
-# module "reboot" {
-#   source = "../remote"
-
-#   connection = local.lxc_connection
-
-#   script = <<-EOT
-#     (sleep 1 && reboot) &
-#   EOT
-
-#   triggers = {
-#     password = local.lxc_connection.password
-#   }
-
-#   depends_on = [
-#     module.patch_lxc_config,
-#     module.conf-kmsg,
-#     module.iscsid,
-#     module.install_packages,
-#     module.set_timezone
-#   ]
-# }
 
 output "config" {
   value = {

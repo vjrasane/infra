@@ -11,9 +11,8 @@
 ## Setup
 
 1. pre-commit install
-1. store age key
-    * linux: ~/.config/sops/age/keys.txt
-1. bwrun tofu init
+1. cd main; tf init; tf apply
+1. tf output -raw kube_config_yaml > ../.kube/config
 
 ## SOPS
 
