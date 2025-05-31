@@ -7,7 +7,7 @@ spec:
   decryption:
     provider: sops
     secretRef:
-      name: sops-gpg
+      name: sops-age-key
   interval: 1m
   dependsOn:
     - name: infra
