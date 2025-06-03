@@ -1,4 +1,0 @@
-"creation_rules":
-- "age": "age1yj0hm72rhuad9v5g7wu0j75x6zrp8vfcpx929mfvqs7sh7zc3cqsl9tnln"
-  "encrypted_regex": "^(auth-token)$"
-  "path_regex": ".*\\.ya?ml$"
