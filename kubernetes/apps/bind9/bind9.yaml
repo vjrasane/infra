@@ -9,6 +9,8 @@ metadata:
   name: bind9-config
 data:
   named.conf: |
+    include "/etc/bind/tsig-key.conf";
+
     acl internal {
         127.0.0.1;
         ::1;
@@ -52,7 +54,20 @@ data:
                             NS      ns.home.karkki.org.
 
     ns              IN      A       192.168.1.222
-
+---
+apiVersion: k8s.bitwarden.com/v1
+kind: BitwardenSecret
+metadata:
+  name: tsig-conf
+spec:
+  organizationId: "60ceb718-168e-4c92-acbc-b2dc012f1217"
+  secretName: tsig-conf # pragma: allowlist secret
+  map:
+    - bwSecretId: "07329609-9bca-49f3-8b69-b2f2014072dc"
+      secretKeyName: tsig-key # pragma: allowlist secret
+  authToken:
+    secretName: bw-auth-token # pragma: allowlist secret
+    secretKey: auth-token # pragma: allowlist secret
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -76,6 +91,8 @@ spec:
           volumeMounts:
             - name: bind9-config
               mountPath: /etc/bind
+            - name: tsig-conf
+              mountPath: /etc/bind
           ports:
             - containerPort: 53
               protocol: TCP
@@ -95,6 +112,12 @@ spec:
                 path: named.conf
               - key: zone.conf
                 path: zone.conf
+        - name: tsig-conf
+          secret:
+            secretName: tsig-conf # pragma: allowlist secret
+            items:
+              - key: tsig-key
+                path: tsig-key.conf
 ---
 apiVersion: v1
 kind: Service
