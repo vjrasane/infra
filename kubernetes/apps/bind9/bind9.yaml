@@ -22,6 +22,9 @@ spec:
       containers:
         - name: bind9
           image: ubuntu/bind9:latest
+          volumeMounts:
+            - name: bind9-config
+              mountPath: /etc/bind
           ports:
             - containerPort: 53
               protocol: TCP
@@ -32,6 +35,15 @@ spec:
               value: "root"
             - name: TZ
               value: "Europe/Helsinki"
+          volumes:
+            - name: bind9-config
+              configMap:
+                name: bind9-config
+                items:
+                  - key: named.conf
+                    path: named.conf
+                  - key: zone.conf
+                    path: zone.conf
 ---
 apiVersion: v1
 kind: Service

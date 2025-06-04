@@ -5,3 +5,4 @@ namespace: bind9
 
 resources:
   - bind9.yaml
+  - config-map.yaml
