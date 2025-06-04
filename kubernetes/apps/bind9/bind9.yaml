@@ -114,7 +114,7 @@ spec:
                     - key: zone.conf
                       path: zone.conf
               - secret:
-                  secretName: tsig-conf # pragma: allowlist secret
+                  name: tsig-conf # pragma: allowlist secret
                   items:
                     - key: tsig-key
                       path: tsig-key.conf
