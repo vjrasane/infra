@@ -3,6 +3,53 @@ kind: Namespace
 metadata:
   name: bind9
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bind9-config
+data:
+  named.conf: |
+    acl internal {
+        127.0.0.1;
+        ::1;
+        192.168.1.0/24;
+        172.21.0.1/32;
+        2001:14ba:700e:c00::/64;
+    };
+
+    options {
+        forwarders {
+            1.1.1.1;
+            8.8.8.8;
+        };
+
+        allow-query {
+            internal;
+        };
+    };
+
+    zone "home.karkki.org" {
+        type master;
+        file "/etc/bind/zone.conf";
+        update-policy { grant tsig-key subdomain home.karkki.org. ANY; };
+    };
+  zone.conf: |
+    $ORIGIN home.karkki.org.
+
+    $TTL 2d
+
+    @       IN      SOA     ns.home.karkki.org. admin@karkki.org. (
+                            2025050721  ; serial
+                            12h         ; refresh
+                            15m         ; retry
+                            3w          ; expire
+                            2h          ; minimum ttl
+                            )
+                            NS      ns.home.karkki.org.
+
+    ns              IN      A       192.168.1.222
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
