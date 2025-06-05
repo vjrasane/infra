@@ -24,6 +24,8 @@ data:
     };
 
     options {
+        directory "/var/lib/bind";
+
         forwarders {
             1.1.1.1;
             8.8.8.8;
@@ -69,6 +71,16 @@ spec:
     secretName: bw-auth-token # pragma: allowlist secret
     secretKey: auth-token # pragma: allowlist secret
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bind9-zones
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50M
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -91,6 +103,9 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/bind
+              readOnly: true
+            - name: zones
+              mountPath: /var/lib/bind
           ports:
             - containerPort: 53
               protocol: TCP
@@ -102,6 +117,9 @@ spec:
             - name: TZ
               value: "Europe/Helsinki"
       volumes:
+        - name: zones
+          persistentVolumeClaim:
+            claimName: bind9-zones
         - name: config
           projected:
             defaultMode: 0644
