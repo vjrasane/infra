@@ -100,24 +100,35 @@ provider "bitwarden" {
   }
 }
 
-variable "rpi_ip" {
-  description = "The IP address of the Raspberry Pi"
-  type        = string
-  sensitive   = true
+# variable "rpi_ip" {
+#   description = "The IP address of the Raspberry Pi"
+#   type        = string
+#   sensitive   = true
+# }
+
+data "bitwarden_secret" "bind9_ip" {
+  key = "bind9_ip"
 }
 
-variable "tsig_key" {
-  description = "The TSIG key for the DNS server"
-  type        = string
-  sensitive   = true
+data "bitwarden_secret" "tsig_key" {
+  key = "tsig_key"
+  # description = "The TSIG key for the DNS server"
+  # type        = string
+  # sensitive   = true
+}
+
+locals {
+  tsig_key_matches = regex("secret \"(.*)\";", data.bitwarden_secret.tsig_key.value)
+  tsig_key = local.tsig_key_matches[0]
 }
 
 provider "dns" {
   update {
-    server        = var.rpi_ip
+    server        = data.bitwarden_secret.bind9_ip.value
     key_name      = "tsig-key."
     key_algorithm = "hmac-sha256"
-    key_secret    = var.tsig_key
+    # key_secret    = var.tsig_key
+    key_secret = local.tsig_key
   }
 }
 
@@ -139,5 +150,5 @@ data "terraform_remote_state" "main" {
 
 locals {
   lxc_containers = data.terraform_remote_state.main.outputs.pm_lxc_containers
-  k3s_vip = data.terraform_remote_state.main.outputs.k3s_vip
+  k3s_vip = data.terraform_remote_state.main.outputs.k3s.vip
 }

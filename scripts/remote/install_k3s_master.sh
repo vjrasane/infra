@@ -2,6 +2,15 @@
 
 set -euo pipefail
 
+node_ip="${1}"
+shift
+vip="${1}"
+shift
+cluster_cidr="${1}"
+shift
+service_cidr="${1}"
+shift
+
 MANIFEST_DIR="/var/lib/rancher/k3s/server/manifests"
 
 ###############################################################################
@@ -38,12 +47,10 @@ if [[ ! -f /usr/local/bin/k3s-uninstall.sh ]]; then
         --disable servicelb \
         --disable metrics-server \
         --flannel-iface eth0 \
+        --node-ip "${node_ip}" \
         --tls-san "${vip}" \
-        --tls-san "${fqdn}" \
         --cluster-cidr "${cluster_cidr}" \
-        --service-cidr "${service_cidr}" \
-        --node-ip "${node_ip}"
-else
+        --service-cidr "${service_cidr}"
     echo "✅  K3s already installed – skipping installer step"
 fi
 

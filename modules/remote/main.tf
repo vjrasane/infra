@@ -30,15 +30,15 @@ locals {
 }
 
 resource "null_resource" "script" {
-  triggers = local.triggers
+  triggers = nonsensitive(local.triggers)
 
   connection {
     host     = var.connection.host
     user     = var.connection.user
-    password = var.connection.password
+    password = nonsensitive(var.connection.password)
   }
 
   provisioner "remote-exec" {
-    inline = [var.script]
+    inline = [nonsensitive(var.script)]
   }
 }

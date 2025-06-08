@@ -9,6 +9,7 @@ until (pct status "${vmid}" | grep -q "stopped"); do
 done
 
 cat <<-EOF >>/etc/pve/lxc/${vmid}.conf
+unprivileged: 0
 features: keyctl=1,nesting=1
 lxc.apparmor.profile: unconfined
 lxc.cgroup.devices.allow: a

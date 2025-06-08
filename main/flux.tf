@@ -47,17 +47,3 @@ resource "local_file" "bw_auth_token" {
 
   depends_on = [module.sops_encrypt, age_secret_key.sops_age_key]
 }
-
-# resource "sops_file" "bw_auth_token" {
-#   encryption_type = "age"
-#   content = templatefile("${path.module}/templates/bw-auth-token.yaml.tftpl", {
-#     auth_token = data.bitwarden_secret.bw_auth_token.value
-#   })
-#   filename = "${path.module}/../kubernetes/secrets/bw-auth-token.yaml"
-#   age = {
-#     key             = age_secret_key.sops_age_key.public_key
-#     encrypted_regex = "^(auth-token)$"
-#   }
-
-#   depends_on = [local_file.sops_yaml, age_secret_key.sops_age_key]
-# }

@@ -34,10 +34,6 @@ variable "pm_password" {
   sensitive = true
 }
 
-variable "ip_gateway" {
-  type = string
-}
-
 variable "lxc_password" {
   type      = string
   sensitive = true
@@ -60,9 +56,14 @@ resource "tls_private_key" "lxc_ssh_key" {
 
 variable "config" {
   type = object({
-    vmid = number
-    ip   = string
-    ip6  = string
+    vmid    = number
+    ip      = string
+    ip6     = string
+    gateway = string
+    rootfs = object({
+      size    = string
+      storage = string
+    })
   })
 }
 
@@ -93,8 +94,8 @@ resource "proxmox_lxc" "lxc" {
   start        = true
 
   rootfs {
-    storage = local.lxc_storage
-    size    = "32G"
+    storage = var.config.rootfs.storage
+    size    = var.config.rootfs.size
   }
 
   network {
@@ -102,7 +103,7 @@ resource "proxmox_lxc" "lxc" {
     bridge = "vmbr0"
     ip     = "${var.config.ip}${var.ip_subnet_mask}"
     ip6    = "${var.config.ip6}${var.ip6_subnet_mask}"
-    gw     = var.ip_gateway
+    gw     = var.config.gateway
   }
 
   ssh_public_keys = tls_private_key.lxc_ssh_key.public_key_openssh
