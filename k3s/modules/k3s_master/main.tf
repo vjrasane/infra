@@ -1,10 +1,3 @@
-terraform {
-  required_providers {
-    ansible = {
-      source = "ansible/ansible"
-    }
-  }
-}
 
 variable "lxc_config" {
   description = "LXC container configuration parameters"
@@ -37,7 +30,7 @@ locals {
 
 
 module "install_k3s" {
-  source = "../remote"
+  source = "../../../modules/remote"
 
   connection = local.connection
 
@@ -78,7 +71,7 @@ resource "null_resource" "kube_vip" {
 }
 
 module "k3s_token" {
-  source = "../ssh_cmd"
+  source = "../../../modules/ssh_cmd"
 
   hostname = var.lxc_config.ip
   user     = var.lxc_config.user

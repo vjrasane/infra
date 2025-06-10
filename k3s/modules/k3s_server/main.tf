@@ -1,11 +1,3 @@
-terraform {
-  required_providers {
-    ansible = {
-      source = "ansible/ansible"
-    }
-  }
-}
-
 variable "lxc_ip" {
   type = string
 }
@@ -50,7 +42,7 @@ locals {
 
 
 module "install_k3s" {
-  source = "../remote"
+  source = "../../../modules/remote"
 
   connection = local.connection
 

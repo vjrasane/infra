@@ -4,10 +4,6 @@ terraform {
     proxmox = {
       source = "telmate/proxmox"
     }
-
-    ansible = {
-      source = "ansible/ansible"
-    }
   }
 }
 
@@ -34,19 +30,9 @@ variable "pm_password" {
   sensitive = true
 }
 
-variable "lxc_password" {
-  type      = string
-  sensitive = true
-  default   = ""
-}
-
 resource "random_password" "lxc_password" {
   length  = 16
   special = true
-
-  keepers = {
-    password = var.lxc_password
-  }
 }
 
 resource "tls_private_key" "lxc_ssh_key" {
@@ -88,7 +74,7 @@ resource "proxmox_lxc" "lxc" {
   ostemplate   = local.lxc_ostemplate
   cores        = 4
   memory       = 4096
-  password     = var.lxc_password != "" ? var.lxc_password : random_password.lxc_password.result
+  password     = random_password.lxc_password.result
   unprivileged = false
   onboot       = true
   start        = true
@@ -125,7 +111,7 @@ locals {
 }
 
 module "patch_lxc_config" {
-  source = "../remote"
+  source = "../../../modules/remote"
 
   connection = local.pm_connection
 
@@ -141,7 +127,7 @@ module "patch_lxc_config" {
 }
 
 module "configure_lxc" {
-  source = "../remote"
+  source = "../../../modules/remote"
 
   connection = local.lxc_connection
 
@@ -156,10 +142,11 @@ module "configure_lxc" {
 
 output "config" {
   value = {
-    name     = proxmox_lxc.lxc.hostname
-    vmid     = proxmox_lxc.lxc.vmid
-    ip       = var.config.ip
-    ip6      = var.config.ip6
-    password = proxmox_lxc.lxc.password
+    name        = proxmox_lxc.lxc.hostname
+    vmid        = proxmox_lxc.lxc.vmid
+    ip          = var.config.ip
+    ip6         = var.config.ip6
+    password    = proxmox_lxc.lxc.password
+    private_key = tls_private_key.lxc_ssh_key.private_key_pem
   }
 }

@@ -15,14 +15,12 @@ resource "kubernetes_secret" "sops_age_key" {
 
   type = "Opaque"
 
-  depends_on = [local.k3s_master, module.k3s_server, flux_bootstrap_git.flux]
+  depends_on = [flux_bootstrap_git.flux]
 }
 
 resource "flux_bootstrap_git" "flux" {
   embedded_manifests = false
   path               = "kubernetes/cluster"
-
-  depends_on = [module.k3s_master, module.k3s_server]
 }
 
 data "bitwarden_secret" "bw_auth_token" {

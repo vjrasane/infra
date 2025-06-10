@@ -13,7 +13,7 @@ variable "password" {
 }
 
 module "get_kube_config" {
-  source = "../ssh_cmd"
+  source = "../../../modules/ssh_cmd"
 
   hostname = var.hostname
   user     = var.user

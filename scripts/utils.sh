@@ -1,6 +1,8 @@
 script_dir=$(dirname "$(readlink -f "$0")")
 repo_dir=$(dirname "$script_dir")
 main_dir="${repo_dir}/main"
+k3s_dir="${repo_dir}/k3s"
+pm_dir="${repo_dir}/proxmox"
 
 clear_known_host() {
     local host="${1}"
@@ -43,14 +45,17 @@ run_script() {
 }
 
 get_output_json() {
+    local state_dir="$1"
+    shift
     local output="$1"
-    cd "$main_dir"
+    shift
+    cd "$state_dir"
     tofu output --json "$output"
 }
 
 get_lxc_config() {
     local lxc_vmid="$1"
-    local output=$(get_output_json "pm_lxc_containers")
+    local output=$(get_output_json "$pm_dir" "pm_lxc_containers")
     echo "$output" | jq ".[].config | select(.vmid == $lxc_vmid)"
 }
 
@@ -60,6 +65,10 @@ get_node_ip() {
     local lxc_ip=$(echo "$lxc_config" | jq -r '.ip')
     local lxc_ip6=$(echo "$lxc_config" | jq -r '.ip6')
     echo "${lxc_ip},${lxc_ip6}"
+}
+
+get_k3s_config() {
+    get_output_json "$k3s_dir" "k3s"
 }
 
 wait_for_confirm() {
