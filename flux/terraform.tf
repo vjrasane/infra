@@ -45,6 +45,12 @@ terraform {
       enforced = true
       method   = method.aes_gcm.encrypt
     }
+
+    remote_state_data_sources {
+      default {
+        method = method.aes_gcm.encrypt
+      }
+    }
   }
 
   backend "s3" {
@@ -62,7 +68,7 @@ terraform {
 }
 
 
-data "terraform_remote_state" "main" {
+data "terraform_remote_state" "k3s" {
   backend = "s3"
   config = {
     bucket   = var.backend_bucket

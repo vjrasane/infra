@@ -28,7 +28,7 @@ data "bitwarden_secret" "bw_auth_token" {
 }
 
 module "sops_encrypt" {
-  source = "../modules/sops_encrypt"
+  source = "./modules/sops_encrypt"
 
   plaintext = templatefile("${path.module}/templates/bw-auth-token.yaml.tftpl", {
     auth_token = data.bitwarden_secret.bw_auth_token.value
