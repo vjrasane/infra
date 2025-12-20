@@ -1,0 +1,1 @@
+- consider k8s directory to be its own collection. ignore eveything else for now

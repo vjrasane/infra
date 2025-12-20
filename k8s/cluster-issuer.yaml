@@ -1,0 +1,17 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cloudflare-issuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: cloudflare@vjm.anonaddy.me
+    privateKeySecretRef:
+      name: cloudflare-issuer-key
+    solvers:
+      - dns01:
+          cloudflare:
+            email: cloudflare@vjm.anonaddy.me
+            apiKeySecretRef:
+              name: cloudflare
+              key: api-key
