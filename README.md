@@ -4,10 +4,10 @@
 
 * pre-commit
 * opentofu
-* bws
+* bw (Bitwarden CLI)
 * helm
 * kubectl
-* ksops
+* kubeseal
 
 ## Setup
 
@@ -77,16 +77,17 @@ tf output -raw kube_config_yaml > ../.kube/config
 
 ### 1.5. Bootstrap Secrets
 
-**Create Bitwarden auth token secret**:
+**Create Bitwarden auth token sealed secret**:
 ```bash
 # Prerequisites:
-# 1. Get machine account token from: https://vault.bitwarden.com/#/settings/organizations/<org-id>/machine-accounts
-# 2. Store it in password manager item named: "homelab-machine-account-auth-token"
+# 1. Sealed Secrets controller installed (see Helm charts above)
+# 2. Get machine account token from: https://vault.bitwarden.com/#/settings/organizations/<org-id>/machine-accounts
+# 3. Store it in password manager item named: "homelab-machine-account-auth-token"
 #    (in the notes field)
 
 ./k8s/create-bw-auth-token.sh
 
-# This creates k8s/secrets/bw-auth-token.yaml
+# This creates k8s/secrets/bw-auth-token-sealed.yaml (encrypted, safe to commit!)
 # Commit it to git
 ```
 
@@ -125,6 +126,42 @@ helm install metallb metallb/metallb \
   --namespace metallb-system \
   --create-namespace
 ```
+
+**Sealed Secrets** (Encrypted Secrets):
+```bash
+helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+helm repo update
+
+helm install sealed-secrets sealed-secrets/sealed-secrets \
+  --namespace kube-system
+```
+
+Install the `kubeseal` CLI:
+```bash
+# Download latest release
+KUBESEAL_VERSION=$(curl -s https://api.github.com/repos/bitnami-labs/sealed-secrets/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/v//')
+curl -OL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz"
+tar -xvzf kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz kubeseal
+sudo install -m 755 kubeseal /usr/local/bin/kubeseal
+rm kubeseal kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz
+```
+
+**Headlamp** (Kubernetes Dashboard):
+```bash
+helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/
+helm repo update
+
+helm install headlamp headlamp/headlamp \
+  --namespace kube-system \
+  --set extraArgs="{-in-cluster}"
+```
+
+Create a long-lived token for authentication (1 year):
+```bash
+kubectl create token headlamp --namespace kube-system --duration=8760h
+```
+
+Access at: `http://k8s.karkki.org` - paste the token when prompted (stored in browser).
 
 ### 3. Apply kubectl Resources
 
@@ -294,6 +331,36 @@ IP address pool configuration for MetalLB LoadBalancer.
 ```bash
 kubectl apply -k k8s/metallb-system/
 ```
+
+### Sealed Secrets
+
+**Location**: `k8s/secrets/` (Component)
+
+Sealed Secrets encrypts Kubernetes secrets so they can be safely committed to git. The Sealed Secrets controller decrypts them in-cluster.
+
+**How it works**:
+1. The controller generates an RSA key pair in the cluster
+2. `kubeseal` encrypts secrets using the cluster's public key
+3. Only the controller can decrypt (using the private key)
+4. SealedSecrets are safe to commit to version control
+
+**Create a sealed secret manually**:
+```bash
+# Create a regular secret (dry-run)
+kubectl create secret generic my-secret \
+    --from-literal=key=value \
+    --dry-run=client -o yaml | \
+kubeseal \
+    --controller-name=sealed-secrets \
+    --controller-namespace=kube-system \
+    --scope cluster-wide \
+    --format yaml > my-secret-sealed.yaml
+```
+
+**Scopes**:
+- `strict` (default): Sealed to specific name and namespace
+- `namespace-wide`: Can be renamed within the namespace
+- `cluster-wide`: Can be deployed to any namespace with any name
 
 ### Traefik Configuration
 

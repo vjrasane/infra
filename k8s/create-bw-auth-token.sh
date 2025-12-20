@@ -9,13 +9,20 @@ set -euo pipefail
 # "homelab-machine-account-auth-token"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SECRET_FILE="$SCRIPT_DIR/secrets/bw-auth-token.yaml"
+SEALED_SECRET_FILE="$SCRIPT_DIR/secrets/bw-auth-token-sealed.yaml"
 ITEM_NAME="homelab-machine-account-auth-token"
 
 # Check if bw CLI is installed
 if ! command -v bw &> /dev/null; then
     echo "❌ Bitwarden CLI (bw) is not installed"
     echo "Install with: npm install -g @bitwarden/cli"
+    exit 1
+fi
+
+# Check if kubeseal is installed
+if ! command -v kubeseal &> /dev/null; then
+    echo "❌ kubeseal is not installed"
+    echo "Install from: https://github.com/bitnami-labs/sealed-secrets/releases"
     exit 1
 fi
 
@@ -46,16 +53,23 @@ if [[ -z "$BW_TOKEN" ]]; then
 fi
 
 # Create secrets directory
-mkdir -p "$(dirname "$SECRET_FILE")"
+mkdir -p "$(dirname "$SEALED_SECRET_FILE")"
 
-# Create secret using kubectl
+echo "🔐 Creating and sealing secret..."
+
+# Create and seal secret in one pipeline (no intermediate file)
 kubectl create secret generic bw-auth-token \
     --from-literal=token="$BW_TOKEN" \
     --dry-run=client \
-    -o yaml > "$SECRET_FILE"
+    -o yaml | \
+kubeseal \
+    --controller-name=sealed-secrets \
+    --controller-namespace=kube-system \
+    --scope cluster-wide \
+    --format yaml > "$SEALED_SECRET_FILE"
 
-echo "✅ Created secret at: $SECRET_FILE"
+echo "✅ Created sealed secret at: $SEALED_SECRET_FILE"
 echo ""
 echo "Next steps:"
-echo "1. Commit the secret to git"
+echo "1. Commit the sealed secret to git (safe to commit!)"
 echo "2. Deploy with: kubectl apply -k k8s/"

@@ -5,6 +5,7 @@ namespace: kube-system
 
 resources:
   - coredns.yaml
+  - headlamp.yaml
   - traefik.yaml
 
 components:
