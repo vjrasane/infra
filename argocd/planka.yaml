@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: planka
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://plankanban.github.io/planka
+    targetRevision: 1.1.1
+    chart: planka
+    helm:
+      values: |
+        baseUrl: https://planka.k8s.karkki.org
+        persistence:
+          enabled: true
+          size: 5Gi
+        postgresql:
+          enabled: true
+        oidc:
+          enabled: true
+          enforced: true
+          issuerUrl: https://auth.k8s.karkki.org/application/o/planka/
+          admin:
+            roles:
+              - planka-admins
+        extraEnv:
+          - name: OIDC_ENFORCED
+            value: "true"
+      valuesFrom:
+        - secretKeyRef:
+            name: planka-helm-secrets
+            key: values.yaml
+            optional: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

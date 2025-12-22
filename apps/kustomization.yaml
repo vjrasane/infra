@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: apps
+
+resources:
+  - namespace.yaml
+  - authentik.yaml
+  - authentik-secrets.yaml
+  - cloudflare.yaml
+  - planka.yaml
+  - planka-secrets.yaml
+
+components:
+  - ../secrets
