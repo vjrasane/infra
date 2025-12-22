@@ -11,18 +11,22 @@ spec:
     chart: authentik
     helm:
       values: |
+        global:
+          envFrom:
+            - secretRef:
+                name: authentik-secret-key
         postgresql:
           enabled: true
+          auth:
+            existingSecret: authentik-postgresql-auth
+            secretKeys:
+              adminPasswordKey: postgres-password
+              userPasswordKey: password
         redis:
           enabled: true
         server:
           ingress:
             enabled: false
-      valuesFrom:
-        - secretKeyRef:
-            name: authentik-helm-secrets
-            key: values.yaml
-            optional: true
   destination:
     server: https://kubernetes.default.svc
     namespace: apps

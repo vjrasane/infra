@@ -17,21 +17,23 @@ spec:
           size: 5Gi
         postgresql:
           enabled: true
+          auth:
+            existingSecret: planka-postgresql-auth
+            secretKeys:
+              adminPasswordKey: postgres-password
+              userPasswordKey: password
+        existingSecretkeySecret: planka-secretkey
         oidc:
           enabled: true
           enforced: true
           issuerUrl: https://auth.k8s.karkki.org/application/o/planka/
+          existingSecret: planka-oidc
           admin:
             roles:
               - planka-admins
         extraEnv:
           - name: OIDC_ENFORCED
             value: "true"
-      valuesFrom:
-        - secretKeyRef:
-            name: planka-helm-secrets
-            key: values.yaml
-            optional: true
   destination:
     server: https://kubernetes.default.svc
     namespace: apps
