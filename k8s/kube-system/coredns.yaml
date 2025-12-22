@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: coredns-custom
+  name: coredns-external
 data:
   Corefile: |
     .:53 {
@@ -45,18 +45,18 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: coredns-custom
+  name: coredns-external
   labels:
-    app: coredns-custom
+    app: coredns-external
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: coredns-custom
+      app: coredns-external
   template:
     metadata:
       labels:
-        app: coredns-custom
+        app: coredns-external
     spec:
       containers:
       - name: coredns
@@ -106,7 +106,7 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: coredns-custom
+          name: coredns-external
           items:
           - key: Corefile
             path: Corefile
@@ -114,9 +114,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: coredns-custom
+  name: coredns-external
   labels:
-    app: coredns-custom
+    app: coredns-external
   annotations:
     metallb.universe.tf/loadBalancerIPs: 192.168.1.201,2001:14ba:700e:0c00:1144:dcf2:fdb9:b677
 spec:
@@ -135,4 +135,4 @@ spec:
     protocol: TCP
     name: dns-tcp
   selector:
-    app: coredns-custom
+    app: coredns-external
