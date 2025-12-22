@@ -15,6 +15,7 @@ spec:
         persistence:
           enabled: true
           size: 5Gi
+        existingDburlSecret: planka-dburl
         postgresql:
           enabled: true
           auth:
@@ -22,6 +23,8 @@ spec:
             secretKeys:
               adminPasswordKey: postgres-password
               userPasswordKey: password
+          serviceBindings:
+            enabled: false
         existingSecretkeySecret: planka-secretkey
         oidc:
           enabled: true
