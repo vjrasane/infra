@@ -161,7 +161,63 @@ Create a long-lived token for authentication (1 year):
 kubectl create token headlamp --namespace kube-system --duration=8760h
 ```
 
-Access at: `http://k8s.karkki.org` - paste the token when prompted (stored in browser).
+Access at: `https://headlamp.k8s.karkki.org` - paste the token when prompted (stored in browser).
+
+**Authentik** (Identity Provider):
+```bash
+helm repo add authentik https://charts.goauthentik.io
+helm repo update
+
+# Generate secrets
+SECRET_KEY=$(openssl rand -base64 45)
+PG_PASSWORD=$(openssl rand -base64 32)
+
+helm install authentik authentik/authentik \
+  --namespace apps \
+  --set authentik.secret_key="$SECRET_KEY" \
+  --set authentik.postgresql.password="$PG_PASSWORD" \
+  --set postgresql.enabled=true \
+  --set postgresql.auth.password="$PG_PASSWORD" \
+  --set redis.enabled=true \
+  --set server.ingress.enabled=false
+```
+
+Initial setup: `https://auth.k8s.karkki.org/if/flow/initial-setup/`
+
+**Planka** (Kanban Board):
+```bash
+helm repo add planka https://plankanban.github.io/planka
+helm repo update
+
+# Generate a secret key
+SECRET_KEY=$(openssl rand -base64 45)
+
+helm install planka planka/planka \
+  --namespace apps \
+  --set secretkey="$SECRET_KEY" \
+  --set baseUrl="https://planka.k8s.karkki.org" \
+  --set postgresql.enabled=true \
+  --set persistence.enabled=true \
+  --set persistence.size=5Gi
+```
+
+To enable SSO with Authentik:
+1. In Authentik, create an OAuth2/OpenID Provider with redirect URI: `https://planka.k8s.karkki.org/oidc-callback`
+2. Create an Application linked to the provider
+3. Update Planka with OIDC settings:
+```bash
+helm upgrade planka planka/planka \
+  --namespace apps \
+  --reuse-values \
+  --set oidc.enabled=true \
+  --set oidc.issuerUrl="https://auth.k8s.karkki.org/application/o/planka/" \
+  --set oidc.clientId="<client-id>" \
+  --set oidc.clientSecret="<client-secret>" \
+  --set 'extraEnv[0].name=OIDC_ENFORCED' \
+  --set 'extraEnv[0].value=true'
+```
+
+Access at: `https://planka.k8s.karkki.org`
 
 ### 3. Apply kubectl Resources
 
@@ -281,8 +337,8 @@ Custom CoreDNS deployment for external DNS server with MetalLB LoadBalancer.
 **Configuration**:
 - Service IP: `192.168.1.201` (MetalLB)
 - DNS Records:
-  - `k8s.karkki.org` → `192.168.1.125`
-  - `*.k8s.karkki.org` → `192.168.1.125`
+  - `*.k8s.karkki.org` → `192.168.1.200` (Traefik)
+  - `ridge.karkki.org` → `192.168.1.125`
 - Recursive DNS forwarding for other domains
 
 **Installation**:
@@ -295,6 +351,27 @@ kubectl apply -k k8s/kube-system/
 nslookup k8s.karkki.org 192.168.1.201
 nslookup test.k8s.karkki.org 192.168.1.201
 ```
+
+#### k3s Internal DNS Forwarding
+
+**Issue**: Pods using cluster DNS (10.43.0.10) resolve `*.k8s.karkki.org` via public DNS, which returns the public IP. NAT hairpinning fails, breaking internal OIDC/service communication.
+
+**Solution**: Configure k3s CoreDNS to forward to custom CoreDNS:
+```bash
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  custom-forward.override: |
+    forward . 192.168.1.201
+EOF
+kubectl rollout restart deployment coredns -n kube-system
+```
+
+This makes all pods resolve `*.k8s.karkki.org` to internal IPs (192.168.1.200).
 
 #### Ubuntu + k3s DNS Workaround
 
