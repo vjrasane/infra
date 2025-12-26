@@ -2,17 +2,7 @@ apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:
   name: provider-sql
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   package: xpkg.upbound.io/crossplane-contrib/provider-sql:v0.9.0
----
-apiVersion: postgresql.sql.crossplane.io/v1alpha1
-kind: ProviderConfig
-metadata:
-  name: postgresql
-spec:
-  credentials:
-    source: PostgreSQLConnectionSecret
-    connectionSecretRef:
-      namespace: apps
-      name: postgresql-connection
-  sslMode: disable

@@ -1,0 +1,14 @@
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: postgresql
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: apps
+      name: postgresql-connection
+  sslMode: disable

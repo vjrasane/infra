@@ -13,6 +13,7 @@ resources:
   - postgresql-cluster.yaml
   - postgresql-secrets.yaml
   - crossplane-provider.yaml
+  - crossplane-provider-config.yaml
 
 components:
   - ../secrets
