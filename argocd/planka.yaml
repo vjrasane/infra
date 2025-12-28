@@ -3,45 +3,48 @@ kind: Application
 metadata:
   name: planka
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   project: default
-  source:
-    repoURL: https://plankanban.github.io/planka
-    targetRevision: 1.1.1
-    chart: planka
-    helm:
-      values: |
-        baseUrl: https://planka.k8s.karkki.org
-        persistence:
-          enabled: true
-          size: 5Gi
-        postgresql:
-          enabled: true
-          auth:
-            existingSecret: planka-postgresql-auth
-            secretKeys:
-              adminPasswordKey: postgres-password
-              userPasswordKey: password
-          serviceBindings:
+  sources:
+    - repoURL: https://plankanban.github.io/planka
+      targetRevision: 1.1.1
+      chart: planka
+      helm:
+        values: |
+          baseUrl: https://planka.k8s.karkki.org
+          persistence:
             enabled: true
-        existingSecretkeySecret: planka-secretkey
-        oidc:
-          enabled: true
-          enforced: true
-          issuerUrl: https://auth.k8s.karkki.org/application/o/planka/
-          existingSecret: planka-oidc
-          admin:
-            roles:
-              - planka-admins
-        extraEnv:
-          - name: OIDC_ENFORCED
-            value: "true"
+            size: 5Gi
+          postgresql:
+            enabled: false
+          existingSecretkeySecret: planka-secretkey
+          extraEnv:
+            - name: DATABASE_URL
+              value: "postgresql://planka:$(PLANKA_DB_PASSWORD)@postgresql-rw.cnpg-system.svc.cluster.local:5432/planka"
+            - name: PLANKA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: planka-db
+                  key: password
+          oidc:
+            enabled: true
+            enforced: true
+            issuerUrl: https://auth.k8s.karkki.org/application/o/planka/
+            existingSecret: planka-oidc
+            admin:
+              roles:
+                - planka-admins
+    - repoURL: https://github.com/vjrasane/infra.git
+      targetRevision: HEAD
+      path: planka
   destination:
     server: https://kubernetes.default.svc
-    namespace: apps
+    namespace: planka
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
+      - ServerSideApply=true

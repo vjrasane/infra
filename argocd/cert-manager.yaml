@@ -5,14 +5,17 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://charts.jetstack.io
-    targetRevision: v1.19.2
-    chart: cert-manager
-    helm:
-      values: |
-        crds:
-          enabled: true
+  sources:
+    - repoURL: https://charts.jetstack.io
+      targetRevision: v1.19.2
+      chart: cert-manager
+      helm:
+        values: |
+          crds:
+            enabled: true
+    - repoURL: https://github.com/vjrasane/infra.git
+      targetRevision: HEAD
+      path: cert-manager
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager
@@ -21,4 +24,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
+      - ServerSideApply=true

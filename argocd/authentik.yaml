@@ -3,36 +3,61 @@ kind: Application
 metadata:
   name: authentik
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   project: default
-  source:
-    repoURL: https://charts.goauthentik.io
-    targetRevision: 2025.10.3
-    chart: authentik
-    helm:
-      values: |
-        global:
-          envFrom:
-            - secretRef:
-                name: authentik-secret-key
-        postgresql:
-          enabled: true
-          auth:
-            existingSecret: authentik-postgresql-auth
-            secretKeys:
-              adminPasswordKey: postgres-password
-              userPasswordKey: password
-        redis:
-          enabled: true
-        server:
-          ingress:
+  sources:
+    - repoURL: https://charts.goauthentik.io
+      targetRevision: 2025.10.3
+      chart: authentik
+      helm:
+        values: |
+          global:
+            envFrom:
+              - secretRef:
+                  name: authentik-secret-key
+            env:
+              - name: AUTHENTIK_POSTGRESQL__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: authentik-db
+                    key: password
+          postgresql:
             enabled: false
+          server:
+            ingress:
+              enabled: false
+            env:
+              - name: AUTHENTIK_POSTGRESQL__HOST
+                value: "postgresql-rw.cnpg-system.svc.cluster.local"
+              - name: AUTHENTIK_POSTGRESQL__PORT
+                value: "5432"
+              - name: AUTHENTIK_POSTGRESQL__NAME
+                value: "authentik"
+              - name: AUTHENTIK_POSTGRESQL__USER
+                value: "authentik"
+          worker:
+            env:
+              - name: AUTHENTIK_POSTGRESQL__HOST
+                value: "postgresql-rw.cnpg-system.svc.cluster.local"
+              - name: AUTHENTIK_POSTGRESQL__PORT
+                value: "5432"
+              - name: AUTHENTIK_POSTGRESQL__NAME
+                value: "authentik"
+              - name: AUTHENTIK_POSTGRESQL__USER
+                value: "authentik"
+          redis:
+            enabled: true
+    - repoURL: https://github.com/vjrasane/infra.git
+      targetRevision: HEAD
+      path: authentik
   destination:
     server: https://kubernetes.default.svc
-    namespace: apps
+    namespace: authentik
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
+      - ServerSideApply=true

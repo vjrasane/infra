@@ -1,16 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: bitwarden-sm-operator
+  name: bitwarden
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "-7"
 spec:
   project: default
-  source:
-    repoURL: https://charts.bitwarden.com
-    targetRevision: 1.1.0
-    chart: sm-operator
+  sources:
+    - repoURL: https://charts.bitwarden.com
+      targetRevision: 1.1.0
+      chart: sm-operator
+    - repoURL: https://github.com/vjrasane/infra.git
+      targetRevision: HEAD
+      path: bitwarden
   destination:
     server: https://kubernetes.default.svc
     namespace: bitwarden
@@ -18,3 +21,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

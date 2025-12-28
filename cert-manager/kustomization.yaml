@@ -5,6 +5,7 @@ namespace: cert-manager
 
 resources:
   - cloudflare.yaml
+  - cluster-issuer.yaml
 
 components:
   - ../secrets

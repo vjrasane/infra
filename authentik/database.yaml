@@ -1,0 +1,46 @@
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Role
+metadata:
+  name: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  providerConfigRef:
+    name: postgresql
+  forProvider:
+    privileges:
+      login: true
+    passwordSecretRef:
+      name: authentik-db
+      namespace: authentik
+      key: password
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Database
+metadata:
+  name: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  providerConfigRef:
+    name: postgresql
+  forProvider:
+    owner: authentik
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Grant
+metadata:
+  name: authentik-all
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  providerConfigRef:
+    name: postgresql
+  forProvider:
+    privileges:
+      - ALL
+    role: authentik
+    database: authentik
