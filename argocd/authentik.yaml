@@ -17,6 +17,8 @@ spec:
             envFrom:
               - secretRef:
                   name: authentik-secret-key
+              - secretRef:
+                  name: authentik-bootstrap
             env:
               - name: AUTHENTIK_POSTGRESQL__PASSWORD
                 valueFrom:
@@ -37,16 +39,6 @@ spec:
                 value: "authentik"
               - name: AUTHENTIK_POSTGRESQL__USER
                 value: "authentik"
-              - name: AUTHENTIK_BOOTSTRAP_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: authentik-bootstrap
-                    key: password
-              - name: AUTHENTIK_BOOTSTRAP_EMAIL
-                valueFrom:
-                  secretKeyRef:
-                    name: authentik-bootstrap
-                    key: email
           worker:
             env:
               - name: AUTHENTIK_POSTGRESQL__HOST
