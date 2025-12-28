@@ -6,5 +6,3 @@ namespace: bitwarden
 resources:
   - namespace.yaml
 
-components:
-  - ../secrets
