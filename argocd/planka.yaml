@@ -20,14 +20,7 @@ spec:
           postgresql:
             enabled: false
           existingSecretkeySecret: planka-secretkey
-          extraEnv:
-            - name: DATABASE_URL
-              value: "postgresql://planka:$(PLANKA_DB_PASSWORD)@postgresql-rw.cnpg-system.svc.cluster.local:5432/planka"
-            - name: PLANKA_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: planka-db
-                  key: password
+          existingDburlSecret: planka-dburl
           oidc:
             enabled: true
             enforced: true
