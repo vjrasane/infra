@@ -3,12 +3,12 @@ kind: ProviderConfig
 metadata:
   name: postgresql
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "3"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   credentials:
     source: PostgreSQLConnectionSecret
     connectionSecretRef:
-      namespace: apps
+      namespace: cnpg-system
       name: postgresql-connection
   sslMode: disable

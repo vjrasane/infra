@@ -10,10 +10,6 @@ resources:
   - cloudflare.yaml
   - planka.yaml
   - planka-secrets.yaml
-  - postgresql-cluster.yaml
-  - postgresql-secrets.yaml
-  - crossplane-provider.yaml
-  - crossplane-provider-config.yaml
 
 components:
   - ../secrets
