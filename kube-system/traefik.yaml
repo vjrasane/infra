@@ -75,6 +75,7 @@ spec:
     kind: ClusterIssuer
   dnsNames:
     - traefik.k8s.karkki.org
+    - traefik.home.karkki.org
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -84,7 +85,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`traefik.k8s.karkki.org`)
+    - match: Host(`traefik.k8s.karkki.org`) || Host(`traefik.home.karkki.org`)
       kind: Rule
       middlewares:
         - name: traefik-dashboard-auth

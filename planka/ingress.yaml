@@ -9,6 +9,7 @@ spec:
     kind: ClusterIssuer
   dnsNames:
     - planka.k8s.karkki.org
+    - planka.home.karkki.org
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -18,7 +19,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`planka.k8s.karkki.org`)
+    - match: Host(`planka.k8s.karkki.org`) || Host(`planka.home.karkki.org`)
       kind: Rule
       services:
         - name: planka
