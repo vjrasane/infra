@@ -26,6 +26,7 @@ spec:
   externalClusters:
     - name: postgresql-backup
       barmanObjectStore: &backupStore
+        serverName: postgresql
         destinationPath: s3://karkkinet-psql-backups/
         endpointURL: https://s3.eu-central-003.backblazeb2.com
         s3Credentials:
