@@ -6,6 +6,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "0"
 spec:
   instances: 1
+  enableSuperuserAccess: true
 
   storage:
     size: 10Gi
