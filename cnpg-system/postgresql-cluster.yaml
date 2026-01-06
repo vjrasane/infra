@@ -18,17 +18,25 @@ spec:
     parameters:
       archive_timeout: "3600"
 
+  bootstrap:
+    recovery:
+      source: postgresql-backup
+
+  externalClusters:
+    - name: postgresql-backup
+      barmanObjectStore: &backupStore
+        destinationPath: s3://karkkinet-psql-backups/
+        endpointURL: https://s3.eu-central-003.backblazeb2.com
+        s3Credentials:
+          accessKeyId:
+            name: postgresql-b2-backup
+            key: ACCESS_KEY_ID
+          secretAccessKey:
+            name: postgresql-b2-backup
+            key: ACCESS_SECRET_KEY
+
   backup:
-    barmanObjectStore:
-      destinationPath: s3://karkkinet-psql-backups/
-      endpointURL: https://s3.eu-central-003.backblazeb2.com
-      s3Credentials:
-        accessKeyId:
-          name: postgresql-b2-backup
-          key: ACCESS_KEY_ID
-        secretAccessKey:
-          name: postgresql-b2-backup
-          key: ACCESS_SECRET_KEY
+    barmanObjectStore: *backupStore
     retentionPolicy: "30d"
 ---
 apiVersion: postgresql.cnpg.io/v1

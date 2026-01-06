@@ -13,7 +13,7 @@ spec:
       chart: planka
       helm:
         values: |
-          baseUrl: https://planka.k8s.karkki.org
+          baseUrl: https://planka.home.karkki.org
           persistence:
             enabled: true
             size: 5Gi
@@ -24,7 +24,7 @@ spec:
           oidc:
             enabled: true
             enforced: true
-            issuerUrl: https://auth.k8s.karkki.org/application/o/planka/
+            issuerUrl: https://auth.home.karkki.org/application/o/planka/
             existingSecret: planka-oidc
             admin:
               roles:
