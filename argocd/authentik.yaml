@@ -53,7 +53,10 @@ spec:
             enabled: true
     - repoURL: https://github.com/vjrasane/infra.git
       targetRevision: HEAD
-      path: authentik
+      path: authentik/namespaced
+    - repoURL: https://github.com/vjrasane/infra.git
+      targetRevision: HEAD
+      path: authentik/database
   destination:
     server: https://kubernetes.default.svc
     namespace: authentik
