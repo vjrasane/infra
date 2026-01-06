@@ -4,6 +4,7 @@ metadata:
   name: postgresql
   annotations:
     argocd.argoproj.io/sync-wave: "0"
+    cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
   instances: 1
   enableSuperuserAccess: true
