@@ -23,12 +23,14 @@ spec:
           existingDburlSecret: planka-dburl
           oidc:
             enabled: true
-            enforced: true
             issuerUrl: https://auth.home.karkki.org/application/o/planka/
             existingSecret: planka-oidc
             admin:
               roles:
                 - planka-admins
+          extraEnv:
+            - name: OIDC_ENFORCED
+              value: "true"
     - repoURL: https://github.com/vjrasane/infra.git
       targetRevision: HEAD
       path: planka/namespaced
