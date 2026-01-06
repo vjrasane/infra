@@ -4,8 +4,6 @@ kind: Kustomization
 namespace: kube-system
 
 resources:
-  - coredns.yaml
-  - coredns-k3s-custom.yaml
   - traefik.yaml
 
 components:

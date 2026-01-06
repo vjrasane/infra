@@ -25,6 +25,7 @@ spec:
             enabled: true
             issuerUrl: https://auth.home.karkki.org/application/o/planka/
             existingSecret: planka-oidc
+            scopes: openid profile email groups
             admin:
               roles:
                 - planka-admins
