@@ -31,7 +31,10 @@ spec:
                 - planka-admins
     - repoURL: https://github.com/vjrasane/infra.git
       targetRevision: HEAD
-      path: planka
+      path: planka/namespaced
+    - repoURL: https://github.com/vjrasane/infra.git
+      targetRevision: HEAD
+      path: planka/database
   destination:
     server: https://kubernetes.default.svc
     namespace: planka
