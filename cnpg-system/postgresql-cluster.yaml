@@ -11,7 +11,7 @@ spec:
 
   storage:
     size: 10Gi
-    storageClassName: local-path-ssd2
+    storageClass: local-path-ssd2
 
   superuserSecret:
     name: postgresql-superuser
