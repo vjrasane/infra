@@ -5,4 +5,3 @@ namespace: bitwarden
 
 resources:
   - namespace.yaml
-

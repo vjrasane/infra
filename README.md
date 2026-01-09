@@ -1,39 +1,20 @@
 # infra
 
-## Requirements
-
-* pre-commit
-* opentofu
-* bw (Bitwarden CLI)
-* helm
-* kubectl
-* kubeseal
-
 ## Setup
 
-### 0. Install k3s (Dual-Stack)
-
-Install k3s with dual-stack (IPv4 + IPv6) support:
+### 0. Install k3s
 
 ```bash
-curl -sfL https://get.k3s.io | sh -s - server \
-  --cluster-cidr=10.42.0.0/16,fd00:42::/48 \
-  --service-cidr=10.43.0.0/16,fd00:43::/112
-```
-
-**Options explained**:
-- `--cluster-cidr`: Pod IP ranges (IPv4 and IPv6 ULA)
-- `--service-cidr`: Service IP ranges (IPv4 and IPv6 ULA)
-
-**Set up local kubectl access on the server** (optional, for running kubectl directly on the server):
-```bash
-# Create .kube directory
-mkdir -p ~/.kube
-
-# Copy kubeconfig with proper permissions
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-sudo chown $(whoami):$(whoami) ~/.kube/config
-chmod 600 ~/.kube/config
+  curl -sfL https://get.k3s.io | sh -s - server \
+      --disable traefik \
+      --disable servicelb \
+      --disable local-storage \
+      --node-ip $(ip -4 addr show tailscale0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}') \
+      --advertise-address $(ip -4 addr show tailscale0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}') \
+      --flannel-iface tailscale0 \
+      --tls-san <node tailscale name> \
+      --tls-san <node tailscale domain name> \
+      --write-kubeconfig-mode 644
 ```
 
 ### 0.5. Configure kubectl Access (Remote)
@@ -49,7 +30,7 @@ export K3S_USER=ubuntu             # Replace with your SSH user
 mkdir -p ~/.kube
 
 # Copy using SCP from server's home directory
-scp ${K3S_USER}@${K3S_SERVER_IP}:~/.kube/config ~/.kube/config
+scp ${K3S_USER}@${K3S_SERVER_IP}:/etc/rancher/k3s/k3s.yaml ~/.kube/config
 
 # Replace localhost with server IP
 sed -i "s/127.0.0.1/$K3S_SERVER_IP/g" ~/.kube/config
@@ -63,16 +44,6 @@ kubectl get nodes
 # Verify dual-stack is enabled
 kubectl get nodes -o jsonpath='{.items[*].spec.podCIDRs}'
 # Should show both IPv4 and IPv6 ranges
-```
-
-### 1. Infrastructure Setup
-
-```bash
-pre-commit install
-cd main
-tf init
-tf apply
-tf output -raw kube_config_yaml > ../.kube/config
 ```
 
 ### 1.5. Bootstrap Secrets

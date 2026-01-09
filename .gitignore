@@ -4,5 +4,12 @@
 **/.terraform
 **/*.tfstate*
 **/*.pem
+dist/
 .vscode
 .pytest_cache
+node_modules/
+.env
+
+.devenv/
+.direnv/
+.devenv.flake.nix
