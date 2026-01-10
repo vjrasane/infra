@@ -10,6 +10,7 @@ import { HomepageChart } from "./charts/homepage";
 import { PostgresChart } from "./charts/postgres";
 import { AuthentikChart } from "./charts/authentik";
 import { PlankaChart } from "./charts/planka";
+import { CloudflareDdnsChart } from "./charts/cloudflare-ddns";
 
 const app = new App();
 
@@ -64,5 +65,6 @@ new PlankaChart(app, "planka", {
   clusterIssuerName,
   storageClassName,
 });
+new CloudflareDdnsChart(app, "cloudflare-ddns");
 
 export default app;
