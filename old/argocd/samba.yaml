@@ -11,7 +11,7 @@ spec:
     - repoURL: https://geek-cookbook.github.io/charts/
       targetRevision: 6.2.2
       chart: samba
-      helm:
+      helm: # pragma: allowlist secret
         values: |
           env:
             TZ: Europe/Helsinki

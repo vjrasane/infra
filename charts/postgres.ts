@@ -42,7 +42,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     });
 
     // Shared credentials from Bitwarden (used by both PostgreSQL and pgAdmin)
-    const credentialsSecretName = "postgres-credentials";
+    const credentialsSecretName = "postgres-credentials"; // pragma: allowlist secret
     new BitwardenOrgSecret(this, "credentials-secret", {
       metadata: { name: credentialsSecretName, namespace },
       spec: {
@@ -50,7 +50,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
         map: [
           {
             bwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
-            secretKeyName: "password",
+            secretKeyName: "password", // pragma: allowlist secret
           },
         ],
       },
@@ -190,7 +190,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     const pgadminService = pgadminDeployment.exposeViaService();
 
     // TLS Certificate
-    const certSecretName = "pgadmin-tls";
+    const certSecretName = "pgadmin-tls"; // pragma: allowlist secret
     new Certificate(this, "cert", {
       metadata: { name: "pgadmin-tls", namespace },
       spec: {
@@ -236,7 +236,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     });
 
     // B2 credentials for restic backups
-    const b2CredentialsSecretName = "b2-backup-credentials";
+    const b2CredentialsSecretName = "b2-backup-credentials"; // pragma: allowlist secret
     new BitwardenOrgSecret(this, "b2-credentials", {
       metadata: { name: b2CredentialsSecretName, namespace },
       spec: {

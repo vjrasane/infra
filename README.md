@@ -247,7 +247,7 @@ spec:
   organizationId: "your-org-id"
   secretName: cloudflare
   map:
-    - bwSecretId: "secret-id"
+    - bwSecretId: "secret-id" # pragma: allowlist secret
       secretKeyName: api-token
   authToken:
     secretName: bw-auth-token

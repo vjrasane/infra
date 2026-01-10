@@ -35,7 +35,7 @@ export class CertManagerChart extends BitwardenAuthTokenChart {
     });
 
     // Cloudflare API key secret from Bitwarden
-    const cloudflareSecretName = "cloudflare";
+    const cloudflareSecretName = "cloudflare"; // pragma: allowlist secret
     new BitwardenOrgSecret(this, "cloudflare-secret", {
       metadata: {
         name: cloudflareSecretName,
@@ -46,7 +46,7 @@ export class CertManagerChart extends BitwardenAuthTokenChart {
         map: [
           {
             bwSecretId: "d5a7351c-a839-49f5-a67f-b2dc0131528b",
-            secretKeyName: "api-key",
+            secretKeyName: "api-key", // pragma: allowlist secret
           },
         ],
       },

@@ -33,7 +33,7 @@ if (BW_ACCESS_TOKEN == null || BW_ACCESS_TOKEN == "") {
   throw new Error("BW_ACCESS_TOKEN not set");
 }
 
-const AUTH_TOKEN_SECRET_NAME = "bw-auth-token";
+const AUTH_TOKEN_SECRET_NAME = "bw-auth-token"; // pragma: allowlist secret
 
 interface BitwardenAuthTokenChartProps extends ChartProps {
   readonly namespace: string;
@@ -78,7 +78,7 @@ export class BitwardenOrgSecret extends BitwardenSecret {
         organizationId: "60ceb718-168e-4c92-acbc-b2dc012f1217",
         authToken: {
           secretName: AUTH_TOKEN_SECRET_NAME,
-          secretKey: "token",
+          secretKey: "token", // pragma: allowlist secret
         },
       },
     });
