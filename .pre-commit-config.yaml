@@ -9,4 +9,5 @@ repos:
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-        exclude: '.sops.yaml|bw-auth-token.yaml'
+        exclude: '.sops.yaml|bw-auth-token.yaml|^imports/'
+        args: ['--exclude-lines', 'SecretName|secretKeyName']

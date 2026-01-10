@@ -29,7 +29,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
     });
 
     // Bitwarden secrets
-    const secretKeySecretName = "authentik-secret-key";
+    const secretKeySecretName = "authentik-secret-key"; // pragma: allowlist secret
     new BitwardenOrgSecret(this, "secret-key", {
       metadata: { name: secretKeySecretName, namespace },
       spec: {
@@ -40,7 +40,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const bootstrapSecretName = "authentik-bootstrap";
+    const bootstrapSecretName = "authentik-bootstrap"; // pragma: allowlist secret
     new BitwardenOrgSecret(this, "bootstrap", {
       metadata: { name: bootstrapSecretName, namespace },
       spec: {
@@ -52,7 +52,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const dbSecretName = "authentik-db";
+    const dbSecretName = "authentik-db"; // pragma: allowlist secret
     new BitwardenOrgSecret(this, "db", {
       metadata: { name: dbSecretName, namespace },
       spec: {
@@ -105,7 +105,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
     });
 
     // TLS Certificate
-    const certSecretName = "authentik-tls";
+    const certSecretName = "authentik-tls"; // pragma: allowlist secret
     new Certificate(this, "certificate", {
       metadata: { name: "authentik-tls", namespace },
       spec: {

@@ -198,7 +198,7 @@ export class HomepageChart extends Chart {
 
     const service = deployment.exposeViaService();
 
-    const certSecretName = "homepage-tls";
+    const certSecretName = "homepage-tls"; // pragma: allowlist secret
     new Certificate(this, "cert", {
       metadata: {
         name: "homepage-tls",

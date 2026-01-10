@@ -13,3 +13,7 @@ node_modules/
 .devenv/
 .direnv/
 .devenv.flake.nix
+
+# Build artifacts
+*.d.ts
+*.js
