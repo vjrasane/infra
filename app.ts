@@ -75,7 +75,7 @@ new SambaChart(app, "samba", {
   nodeName: "ridge",
 });
 new JellyfinChart(app, "jellyfin", {
-  hosts: ["jellyfin.karkki.org"],
+  hosts: ["jellyfin.karkki.org", "jellyfin.home.karkki.org"],
   clusterIssuerName,
   nodeName: "ridge",
   configPath: "/mnt/ssd1/jellyfin",

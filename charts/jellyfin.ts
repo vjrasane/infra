@@ -120,11 +120,9 @@ export class JellyfinChart extends Chart {
       { name: pvcNameConfig } as any,
     );
 
-    const mediaVolume = Volume.fromPersistentVolumeClaim(
-      this,
-      "media-volume",
-      { name: pvcNameMedia } as any,
-    );
+    const mediaVolume = Volume.fromPersistentVolumeClaim(this, "media-volume", {
+      name: pvcNameMedia,
+    } as any);
 
     const podLabels = { "app.kubernetes.io/name": "jellyfin" };
     const deployment = new Deployment(this, "jellyfin", {
@@ -135,7 +133,7 @@ export class JellyfinChart extends Chart {
       containers: [
         {
           name: "jellyfin",
-          image: "jellyfin/jellyfin:latest",
+          image: "lscr.io/linuxserver/jellyfin:latest",
           ports: [{ number: 8096, protocol: Protocol.TCP, name: "http" }],
           volumeMounts: [
             { path: "/config", volume: configVolume },
