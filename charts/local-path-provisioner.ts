@@ -28,6 +28,7 @@ export class LocalPathProvisionerChart extends Chart {
         nodePathMap: props.nodePathMap,
         storageClass: {
           name: props.storageClassName,
+          reclaimPolicy: "Retain",
         },
       },
     });

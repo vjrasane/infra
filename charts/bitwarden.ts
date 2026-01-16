@@ -30,7 +30,7 @@ export class BitwardenSecretsManagerChart extends Chart {
 const BW_ACCESS_TOKEN = process.env.BWS_ACCESS_TOKEN;
 
 if (BW_ACCESS_TOKEN == null || BW_ACCESS_TOKEN == "") {
-  throw new Error("BW_ACCESS_TOKEN not set");
+  throw new Error("BWS_ACCESS_TOKEN not set");
 }
 
 const AUTH_TOKEN_SECRET_NAME = "bw-auth-token"; // pragma: allowlist secret

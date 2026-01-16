@@ -22,11 +22,12 @@
     pkgs.kubectl
     pkgs.kubernetes-helm
     pkgs.just
+    pkgs.samba
   ];
 
   scripts.b2.exec = "backblaze-b2 $@";
 
-  pre-commit.hooks = {
+  git-hooks.hooks = {
     nixfmt-rfc-style.enable = true;
     check-shebang-scripts-are-executable.enable = true;
     check-symlinks.enable = true;

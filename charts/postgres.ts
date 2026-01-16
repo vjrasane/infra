@@ -6,14 +6,17 @@ import {
   Deployment,
   EnvValue,
   Volume,
-  PersistentVolumeClaim,
-  PersistentVolumeAccessMode,
   Cpu,
   ConfigMap,
   CronJob,
   Service,
   Protocol,
 } from "cdk8s-plus-28";
+import {
+  KubePersistentVolume,
+  KubePersistentVolumeClaim,
+  Quantity,
+} from "cdk8s-plus-28/lib/imports/k8s";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
@@ -26,8 +29,9 @@ import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 interface PostgresChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
-  readonly storageClassName: string;
-  readonly storageSize: Size;
+  readonly nodeName: string;
+  readonly dataPath: string;
+  readonly backupsPath: string;
 }
 
 export class PostgresChart extends BitwardenAuthTokenChart {
@@ -56,18 +60,52 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       },
     });
 
-    // PVC for PostgreSQL data
-    const pvc = new PersistentVolumeClaim(this, "postgres-pvc", {
-      metadata: { name: "postgres-data", namespace },
-      storageClassName: props.storageClassName,
-      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
-      storage: props.storageSize,
+    // Static PV/PVC for PostgreSQL data
+    const dataPvName = "postgres-data-pv";
+    const dataPvcName = "postgres-data";
+
+    new KubePersistentVolume(this, "data-pv", {
+      metadata: { name: dataPvName },
+      spec: {
+        capacity: { storage: Quantity.fromString("10Gi") },
+        accessModes: ["ReadWriteOnce"],
+        persistentVolumeReclaimPolicy: "Retain",
+        storageClassName: "",
+        local: { path: props.dataPath },
+        nodeAffinity: {
+          required: {
+            nodeSelectorTerms: [
+              {
+                matchExpressions: [
+                  {
+                    key: "kubernetes.io/hostname",
+                    operator: "In",
+                    values: [props.nodeName],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    new KubePersistentVolumeClaim(this, "data-pvc", {
+      metadata: { name: dataPvcName, namespace },
+      spec: {
+        accessModes: ["ReadWriteOnce"],
+        storageClassName: "",
+        volumeName: dataPvName,
+        resources: {
+          requests: { storage: Quantity.fromString("10Gi") },
+        },
+      },
     });
 
     const dataVolume = Volume.fromPersistentVolumeClaim(
       this,
       "data-volume",
-      pvc,
+      { name: dataPvcName } as any,
     );
 
     // Headless service for StatefulSet (fixed name)
@@ -248,14 +286,53 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       },
     });
 
-    // PVC for backups
-    const backupPvc = new PersistentVolumeClaim(this, "backup-pvc", {
-      metadata: { name: "postgres-backups", namespace },
-      storageClassName: props.storageClassName,
-      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
-      storage: Size.gibibytes(5),
+    // Static PV/PVC for backups
+    const backupPvName = "postgres-backups-pv";
+    const backupPvcName = "postgres-backups";
+
+    new KubePersistentVolume(this, "backup-pv", {
+      metadata: { name: backupPvName },
+      spec: {
+        capacity: { storage: Quantity.fromString("5Gi") },
+        accessModes: ["ReadWriteOnce"],
+        persistentVolumeReclaimPolicy: "Retain",
+        storageClassName: "",
+        local: { path: props.backupsPath },
+        nodeAffinity: {
+          required: {
+            nodeSelectorTerms: [
+              {
+                matchExpressions: [
+                  {
+                    key: "kubernetes.io/hostname",
+                    operator: "In",
+                    values: [props.nodeName],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
     });
-    const backupVolume = Volume.fromPersistentVolumeClaim(this, "backup-volume", backupPvc);
+
+    new KubePersistentVolumeClaim(this, "backup-pvc", {
+      metadata: { name: backupPvcName, namespace },
+      spec: {
+        accessModes: ["ReadWriteOnce"],
+        storageClassName: "",
+        volumeName: backupPvName,
+        resources: {
+          requests: { storage: Quantity.fromString("5Gi") },
+        },
+      },
+    });
+
+    const backupVolume = Volume.fromPersistentVolumeClaim(
+      this,
+      "backup-volume",
+      { name: backupPvcName } as any,
+    );
 
     // Daily pg_dump CronJob (runs at 2 AM)
     new CronJob(this, "daily-backup", {

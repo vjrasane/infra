@@ -11,6 +11,8 @@ import { PostgresChart } from "./charts/postgres";
 import { AuthentikChart } from "./charts/authentik";
 import { PlankaChart } from "./charts/planka";
 import { CloudflareDdnsChart } from "./charts/cloudflare-ddns";
+import { SambaChart } from "./charts/samba";
+import { JellyfinChart } from "./charts/jellyfin";
 
 const app = new App();
 
@@ -52,8 +54,9 @@ new HomepageChart(app, "homepage", {
 const postgresChart = new PostgresChart(app, "postgres", {
   hosts: ["pgadmin.home.karkki.org"],
   clusterIssuerName,
-  storageClassName,
-  storageSize: Size.gibibytes(10),
+  nodeName: "ridge",
+  dataPath: "/mnt/ssd1/postgres",
+  backupsPath: "/mnt/ssd1/postgres-backup",
 });
 new AuthentikChart(app, "authentik", {
   hosts: ["auth.home.karkki.org"],
@@ -66,5 +69,17 @@ new PlankaChart(app, "planka", {
   storageClassName,
 });
 new CloudflareDdnsChart(app, "cloudflare-ddns");
+new SambaChart(app, "samba", {
+  storageSize: Size.tebibytes(1),
+  storagePath: "/mnt/ssd2/samba",
+  nodeName: "ridge",
+});
+new JellyfinChart(app, "jellyfin", {
+  hosts: ["jellyfin.karkki.org"],
+  clusterIssuerName,
+  nodeName: "ridge",
+  configPath: "/mnt/ssd1/jellyfin",
+  mediaPath: "/mnt/ssd2/samba/music",
+});
 
 export default app;
