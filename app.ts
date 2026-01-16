@@ -16,6 +16,9 @@ import { JellyfinChart } from "./charts/jellyfin";
 
 const app = new App();
 
+const resticRepository =
+  "s3:s3.eu-central-003.backblazeb2.com/karkkinet-restic-repo";
+
 new BitwardenSecretsManagerChart(app, "bitwarden");
 new MetalLBChart(app, "metallb", {
   addresses: ["192.168.1.200-192.168.1.230"],
@@ -73,6 +76,7 @@ new SambaChart(app, "samba", {
   storageSize: Size.tebibytes(1),
   storagePath: "/mnt/ssd2/samba",
   nodeName: "ridge",
+  resticRepository,
 });
 new JellyfinChart(app, "jellyfin", {
   hosts: ["jellyfin.karkki.org", "jellyfin.home.karkki.org"],

@@ -1,5 +1,5 @@
 import { Construct } from "constructs";
-import { ChartProps, Size } from "cdk8s";
+import { ChartProps, Size, Cron } from "cdk8s";
 import {
   Namespace,
   Deployment,
@@ -14,6 +14,7 @@ import {
   Quantity,
 } from "cdk8s-plus-28/lib/imports/k8s";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
+import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
 
 // Convert object to INI format for smb.conf
 type SmbSection = Record<string, string | number | boolean>;
@@ -35,8 +36,8 @@ interface SambaChartProps extends ChartProps {
   readonly storageSize: Size;
   readonly storagePath: string;
   readonly nodeName: string;
-  readonly shareName?: string;
-  readonly username?: string;
+
+  readonly resticRepository: string;
 }
 
 export class SambaChart extends BitwardenAuthTokenChart {
@@ -44,8 +45,7 @@ export class SambaChart extends BitwardenAuthTokenChart {
     const namespace = "samba";
     super(scope, id, { ...props, namespace });
 
-    const shareName = props.shareName ?? "share";
-    const username = props.username ?? "samba";
+    const username = "samba";
     const pvName = "samba-pv";
     const pvcName = "samba-data";
 
@@ -124,7 +124,7 @@ export class SambaChart extends BitwardenAuthTokenChart {
         "log file": "/var/log/samba/%m.log",
         "max log size": 50,
       },
-      [shareName]: {
+      share: {
         path: "/data",
         browseable: "yes",
         writable: "yes",
@@ -197,6 +197,37 @@ smbd --foreground --no-process-group --log-stdout`,
           },
         },
       ],
+    });
+
+    // Restic backup to B2
+    const credentials = new ResticCredentials(this, "restic-credentials", {
+      namespace,
+      name: "samba-restic-credentials", // pragma: allowlist secret
+      accessKeyIdBwSecretId: "43c2041e-177f-494d-b78a-b3d60141f01f",
+      accessKeySecretBwSecretId: "98e48367-4a09-40e0-977b-b3d60141da4d",
+      resticPassowrdBwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
+    });
+
+    const hostName = "samba";
+
+    new ResticBackup(this, "restic-backup", {
+      namespace,
+      name: "samba-backup",
+      repository: props.resticRepository,
+      credentialsSecretName: credentials.secretName,
+      hostName,
+      volume: dataVolume,
+      volumeMountPath: "/data",
+      schedule: Cron.schedule({ minute: "0", hour: "4", weekDay: "0" }), // Sunday 4 AM
+    });
+
+    new ResticPrune(this, "restic-prune", {
+      namespace,
+      name: "samba-prune",
+      repository: props.resticRepository,
+      credentialsSecretName: credentials.secretName,
+      hostName,
+      schedule: Cron.schedule({ minute: "0", hour: "5", day: "1" }), // 1st of month 5 AM
     });
   }
 }
