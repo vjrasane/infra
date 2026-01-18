@@ -60,6 +60,7 @@ const postgresChart = new PostgresChart(app, "postgres", {
   nodeName: "ridge",
   dataPath: "/mnt/ssd1/postgres",
   backupsPath: "/mnt/ssd1/postgres-backup",
+  resticRepository,
 });
 new AuthentikChart(app, "authentik", {
   hosts: ["auth.home.karkki.org"],

@@ -8,7 +8,7 @@ interface ResticCredentialsProps {
   readonly name: string;
   readonly accessKeyIdBwSecretId: string;
   readonly accessKeySecretBwSecretId: string;
-  readonly resticPassowrdBwSecretId: string;
+  readonly resticPasswordBwSecretId: string;
 }
 
 export class ResticCredentials extends Construct {
@@ -36,7 +36,7 @@ export class ResticCredentials extends Construct {
           },
           {
             // bwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
-            bwSecretId: props.resticPassowrdBwSecretId,
+            bwSecretId: props.resticPasswordBwSecretId,
             secretKeyName: "RESTIC_PASSWORD",
           },
         ],

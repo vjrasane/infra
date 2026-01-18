@@ -25,6 +25,7 @@ import {
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
+import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
 
 interface PostgresChartProps extends ChartProps {
   readonly hosts: string[];
@@ -32,6 +33,7 @@ interface PostgresChartProps extends ChartProps {
   readonly nodeName: string;
   readonly dataPath: string;
   readonly backupsPath: string;
+  readonly resticRepository: string;
 }
 
 export class PostgresChart extends BitwardenAuthTokenChart {
@@ -273,17 +275,13 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       },
     });
 
-    // B2 credentials for restic backups
-    const b2CredentialsSecretName = "b2-backup-credentials"; // pragma: allowlist secret
-    new BitwardenOrgSecret(this, "b2-credentials", {
-      metadata: { name: b2CredentialsSecretName, namespace },
-      spec: {
-        secretName: b2CredentialsSecretName,
-        map: [
-          { bwSecretId: "53ed67f3-9a98-4b33-974d-b3c1016ac2e1", secretKeyName: "AWS_ACCESS_KEY_ID" },
-          { bwSecretId: "6adf0a82-23c4-4906-bb68-b3c1016ad9f1", secretKeyName: "AWS_SECRET_ACCESS_KEY" },
-        ],
-      },
+    // Restic credentials for B2 backups (uses postgres admin password as restic password)
+    const credentials = new ResticCredentials(this, "restic-credentials", {
+      namespace,
+      name: "postgres-restic-credentials", // pragma: allowlist secret
+      accessKeyIdBwSecretId: "43c2041e-177f-494d-b78a-b3d60141f01f",
+      accessKeySecretBwSecretId: "98e48367-4a09-40e0-977b-b3d60141da4d",
+      resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
     });
 
     // Static PV/PVC for backups
@@ -366,46 +364,28 @@ ls -la /backups/`,
       ],
     });
 
-    // Weekly restic backup CronJob (runs Sunday at 3 AM)
-    new CronJob(this, "weekly-backup", {
-      metadata: { name: "postgres-weekly-backup", namespace },
+    // Weekly restic backup (runs Sunday at 3 AM)
+    const hostName = "postgres";
+
+    new ResticBackup(this, "restic-backup", {
+      namespace,
+      name: "postgres-backup",
+      repository: props.resticRepository,
+      credentialsSecretName: credentials.secretName,
+      hostName,
+      volume: backupVolume,
+      volumeMountPath: "/backups",
       schedule: Cron.schedule({ minute: "0", hour: "3", weekDay: "0" }),
-      volumes: [backupVolume],
-      containers: [
-        {
-          name: "restic",
-          image: "restic/restic:latest",
-          command: ["/bin/sh", "-c"],
-          args: [
-            `set -e
-echo "Initializing restic repo (if needed)..."
-restic snapshots || restic init
-echo "Starting restic backup..."
-restic backup --host backup-psql /backups
-echo "Pruning old snapshots..."
-restic forget --host backup-psql --keep-weekly 4 --keep-monthly 6 --prune
-echo "Done. Snapshots:"
-restic snapshots`,
-          ],
-          envVariables: {
-            RESTIC_REPOSITORY: EnvValue.fromValue("s3:s3.eu-central-003.backblazeb2.com/karkkinet-psql-backups"),
-            RESTIC_PASSWORD: EnvValue.fromSecretValue({
-              secret: { name: credentialsSecretName } as any,
-              key: "password",
-            }),
-            AWS_ACCESS_KEY_ID: EnvValue.fromSecretValue({
-              secret: { name: b2CredentialsSecretName } as any,
-              key: "AWS_ACCESS_KEY_ID",
-            }),
-            AWS_SECRET_ACCESS_KEY: EnvValue.fromSecretValue({
-              secret: { name: b2CredentialsSecretName } as any,
-              key: "AWS_SECRET_ACCESS_KEY",
-            }),
-          },
-          volumeMounts: [{ path: "/backups", volume: backupVolume }],
-          securityContext: { ensureNonRoot: false, readOnlyRootFilesystem: false },
-        },
-      ],
+    });
+
+    // Monthly prune (runs 1st of month at 4 AM)
+    new ResticPrune(this, "restic-prune", {
+      namespace,
+      name: "postgres-prune",
+      repository: props.resticRepository,
+      credentialsSecretName: credentials.secretName,
+      hostName,
+      schedule: Cron.schedule({ minute: "0", hour: "4", day: "1" }),
     });
   }
 }
