@@ -1,10 +1,11 @@
 import { Construct } from "constructs";
 import { Chart, ChartProps, Helm, Include } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
+import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
 
 interface TraefikChartProps extends ChartProps {
-  readonly nodes: string[];
   readonly values?: Record<string, unknown>;
+  readonly affinity?: NodeAffinity;
 }
 
 export class TraefikChart extends Chart {
@@ -40,23 +41,7 @@ export class TraefikChart extends Chart {
             maxSurge: 0,
           },
         },
-        affinity: {
-          nodeAffinity: {
-            requiredDuringSchedulingIgnoredDuringExecution: {
-              nodeSelectorTerms: [
-                {
-                  matchExpressions: [
-                    {
-                      key: "kubernetes.io/hostname",
-                      operator: "In",
-                      values: props.nodes,
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        },
+        affinity: props.affinity ? { nodeAffinity: props.affinity } : {},
         hostNetwork: true,
         securityContext: {
           capabilities: {

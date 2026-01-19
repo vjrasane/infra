@@ -1,0 +1,302 @@
+import { Construct } from "constructs";
+import { Chart, ChartProps, Helm, Include } from "cdk8s";
+import { ConfigMap, Namespace } from "cdk8s-plus-28";
+import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
+import { Certificate } from "../imports/cert-manager.io";
+import {
+  IngressRoute,
+  IngressRouteSpecRoutesKind,
+  IngressRouteSpecRoutesServicesKind,
+  IngressRouteSpecRoutesServicesPort,
+} from "../imports/traefik.io";
+
+interface KubePrometheusStackChartProps extends ChartProps {
+  readonly grafanaHosts: string[];
+  readonly prometheusHosts: string[];
+  readonly alertmanagerHosts: string[];
+  readonly clusterIssuerName: string;
+  readonly nodeAffinity?: NodeAffinity;
+}
+
+export class KubePrometheusStackChart extends Chart {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: KubePrometheusStackChartProps,
+  ) {
+    super(scope, id, { ...props });
+
+    const namespace = "monitoring";
+
+    new Namespace(this, "namespace", {
+      metadata: {
+        name: namespace,
+      },
+    });
+
+    // Prometheus Operator CRDs (ServiceMonitor, PodMonitor, PrometheusRule, etc.)
+    const crds = [
+      "alertmanagerconfigs",
+      "alertmanagers",
+      "podmonitors",
+      "probes",
+      "prometheusagents",
+      "prometheuses",
+      "prometheusrules",
+      "scrapeconfigs",
+      "servicemonitors",
+      "thanosrulers",
+    ];
+    for (const crd of crds) {
+      new Include(this, `crd-${crd}`, {
+        url: `https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.79.2/example/prometheus-operator-crd/monitoring.coreos.com_${crd}.yaml`,
+      });
+    }
+
+    new Helm(this, "kube-prometheus-stack", {
+      chart: "kube-prometheus-stack",
+      repo: "https://prometheus-community.github.io/helm-charts",
+      namespace: namespace,
+      releaseName: "kube-prometheus-stack",
+      helmFlags: ["--skip-crds"],
+      values: {
+        grafana: {
+          adminPassword: "admin",
+          persistence: {
+            enabled: true,
+            size: "1Gi",
+          },
+          affinity: props.nodeAffinity
+            ? { nodeAffinity: props.nodeAffinity }
+            : {},
+        },
+        prometheus: {
+          prometheusSpec: {
+            retention: "15d",
+            retentionSize: "10GB",
+            storageSpec: {
+              volumeClaimTemplate: {
+                spec: {
+                  resources: {
+                    requests: {
+                      storage: "15Gi",
+                    },
+                  },
+                },
+              },
+            },
+            affinity: props.nodeAffinity
+              ? { nodeAffinity: props.nodeAffinity }
+              : {},
+          },
+        },
+        alertmanager: {
+          enabled: true,
+          alertmanagerSpec: {
+            affinity: props.nodeAffinity
+              ? { nodeAffinity: props.nodeAffinity }
+              : {},
+          },
+        },
+        kubeStateMetrics: {
+          affinity: props.nodeAffinity
+            ? { nodeAffinity: props.nodeAffinity }
+            : {},
+        },
+        prometheusOperator: {
+          affinity: props.nodeAffinity
+            ? { nodeAffinity: props.nodeAffinity }
+            : {},
+        },
+      },
+    });
+
+    // Example: Custom dashboard via ConfigMap
+    // The sidecar watches for ConfigMaps with label grafana_dashboard=1
+    new ConfigMap(this, "example-dashboard", {
+      metadata: {
+        name: "example-dashboard",
+        namespace,
+        labels: {
+          grafana_dashboard: "1",
+        },
+      },
+      data: {
+        // Key must end in .json
+        "example-dashboard.json": JSON.stringify({
+          title: "Example Dashboard",
+          uid: "example",
+          schemaVersion: 30,
+          panels: [
+            {
+              id: 1,
+              title: "CPU Usage",
+              type: "timeseries",
+              gridPos: { x: 0, y: 0, w: 12, h: 8 },
+              targets: [
+                {
+                  expr: '100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)',
+                  legendFormat: "CPU %",
+                },
+              ],
+            },
+          ],
+        }),
+      },
+    });
+
+    const grafanaCertSecretName = "grafana-tls";
+    new Certificate(this, "grafana-cert", {
+      metadata: {
+        name: "grafana-tls",
+        namespace,
+      },
+      spec: {
+        secretName: grafanaCertSecretName,
+        issuerRef: {
+          name: props.clusterIssuerName,
+          kind: "ClusterIssuer",
+        },
+        dnsNames: props.grafanaHosts,
+      },
+    });
+
+    new IngressRoute(this, "grafana-ingress", {
+      metadata: {
+        name: "grafana",
+        namespace,
+        annotations: {
+          "gethomepage.dev/enabled": "true",
+          "gethomepage.dev/name": "Grafana",
+          "gethomepage.dev/description": "Metrics Dashboards",
+          "gethomepage.dev/group": "Monitoring",
+          "gethomepage.dev/icon": "grafana.png",
+          "gethomepage.dev/href": `https://${props.grafanaHosts[0]}`,
+        },
+      },
+      spec: {
+        entryPoints: ["websecure"],
+        routes: [
+          {
+            match: props.grafanaHosts.map((h) => `Host(\`${h}\`)`).join(" || "),
+            kind: IngressRouteSpecRoutesKind.RULE,
+            services: [
+              {
+                name: "kube-prometheus-stack-grafana",
+                port: IngressRouteSpecRoutesServicesPort.fromNumber(80),
+                kind: IngressRouteSpecRoutesServicesKind.SERVICE,
+              },
+            ],
+          },
+        ],
+        tls: {
+          secretName: grafanaCertSecretName,
+        },
+      },
+    });
+
+    const prometheusCertSecretName = "prometheus-tls";
+    new Certificate(this, "prometheus-cert", {
+      metadata: {
+        name: "prometheus-tls",
+        namespace,
+      },
+      spec: {
+        secretName: prometheusCertSecretName,
+        issuerRef: {
+          name: props.clusterIssuerName,
+          kind: "ClusterIssuer",
+        },
+        dnsNames: props.prometheusHosts,
+      },
+    });
+
+    new IngressRoute(this, "prometheus-ingress", {
+      metadata: {
+        name: "prometheus",
+        namespace,
+        annotations: {
+          "gethomepage.dev/enabled": "true",
+          "gethomepage.dev/name": "Prometheus",
+          "gethomepage.dev/description": "Metrics Database",
+          "gethomepage.dev/group": "Monitoring",
+          "gethomepage.dev/icon": "prometheus.png",
+          "gethomepage.dev/href": `https://${props.prometheusHosts[0]}`,
+        },
+      },
+      spec: {
+        entryPoints: ["websecure"],
+        routes: [
+          {
+            match: props.prometheusHosts
+              .map((h) => `Host(\`${h}\`)`)
+              .join(" || "),
+            kind: IngressRouteSpecRoutesKind.RULE,
+            services: [
+              {
+                name: "kube-prometheus-stack-prometheus",
+                port: IngressRouteSpecRoutesServicesPort.fromNumber(9090),
+                kind: IngressRouteSpecRoutesServicesKind.SERVICE,
+              },
+            ],
+          },
+        ],
+        tls: {
+          secretName: prometheusCertSecretName,
+        },
+      },
+    });
+
+    const alertmanagerCertSecretName = "alertmanager-tls";
+    new Certificate(this, "alertmanager-cert", {
+      metadata: {
+        name: "alertmanager-tls",
+        namespace,
+      },
+      spec: {
+        secretName: alertmanagerCertSecretName,
+        issuerRef: {
+          name: props.clusterIssuerName,
+          kind: "ClusterIssuer",
+        },
+        dnsNames: props.alertmanagerHosts,
+      },
+    });
+
+    new IngressRoute(this, "alertmanager-ingress", {
+      metadata: {
+        name: "alertmanager",
+        namespace,
+        annotations: {
+          "gethomepage.dev/enabled": "true",
+          "gethomepage.dev/name": "Alertmanager",
+          "gethomepage.dev/description": "Alert Management",
+          "gethomepage.dev/group": "Monitoring",
+          "gethomepage.dev/icon": "alertmanager.png",
+          "gethomepage.dev/href": `https://${props.alertmanagerHosts[0]}`,
+        },
+      },
+      spec: {
+        entryPoints: ["websecure"],
+        routes: [
+          {
+            match: props.alertmanagerHosts
+              .map((h) => `Host(\`${h}\`)`)
+              .join(" || "),
+            kind: IngressRouteSpecRoutesKind.RULE,
+            services: [
+              {
+                name: "kube-prometheus-stack-alertmanager",
+                port: IngressRouteSpecRoutesServicesPort.fromNumber(9093),
+                kind: IngressRouteSpecRoutesServicesKind.SERVICE,
+              },
+            ],
+          },
+        ],
+        tls: {
+          secretName: alertmanagerCertSecretName,
+        },
+      },
+    });
+  }
+}

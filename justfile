@@ -7,7 +7,7 @@ apply:
     @kubectl apply -f dist/
 
 hooks:
-    @pre-commit run --all-files
+    @devenv tasks run devenv:git-hooks:run
 
 backup-pqsl:
     #!/usr/bin/env bash

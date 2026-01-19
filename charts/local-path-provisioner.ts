@@ -1,5 +1,6 @@
 import { Construct } from "constructs";
 import { Chart, ChartProps, Helm } from "cdk8s";
+import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
 
 interface NodePathMapping {
   readonly node: string;
@@ -9,6 +10,7 @@ interface NodePathMapping {
 interface LocalPathProvisionerChartProps extends ChartProps {
   readonly nodePathMap: NodePathMapping[];
   readonly storageClassName: string;
+  readonly affinity?: NodeAffinity;
 }
 
 export class LocalPathProvisionerChart extends Chart {
@@ -29,7 +31,13 @@ export class LocalPathProvisionerChart extends Chart {
         storageClass: {
           name: props.storageClassName,
           reclaimPolicy: "Retain",
+          defaultClass: true,
         },
+        affinity: props.affinity
+          ? {
+              nodeAffinity: props.affinity,
+            }
+          : {},
       },
     });
   }

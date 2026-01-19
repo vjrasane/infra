@@ -1,4 +1,5 @@
 import { App, Size } from "cdk8s";
+import { hostnameNotIn, requiredNodeAffinity } from "./lib/affinity";
 import { BitwardenSecretsManagerChart } from "./charts/bitwarden";
 import { HeadlampChart } from "./charts/headlamp";
 import { MetalLBChart } from "./charts/metallb";
@@ -13,6 +14,7 @@ import { PlankaChart } from "./charts/planka";
 import { CloudflareDdnsChart } from "./charts/cloudflare-ddns";
 import { SambaChart } from "./charts/samba";
 import { JellyfinChart } from "./charts/jellyfin";
+import { KubePrometheusStackChart } from "./charts/kube-prometheus-stack";
 
 const app = new App();
 
@@ -26,16 +28,17 @@ new MetalLBChart(app, "metallb", {
 const storageClassName = "local-path";
 new LocalPathProvisionerChart(app, "local-path-provisioner", {
   storageClassName,
+  affinity: requiredNodeAffinity(hostnameNotIn("ridge")),
   nodePathMap: [
     {
       node: "DEFAULT_PATH_FOR_NON_LISTED_NODES",
-      paths: ["/var/lib/rancher/k3s/storage"],
+      paths: ["/mnt/block1"],
     },
-    { node: "ridge", paths: ["/mnt/ssd1", "/mnt/ssd2"] },
+    { node: "ridge", paths: [] },
   ],
 });
 new TraefikChart(app, "traefik", {
-  nodes: ["ridge"],
+  affinity: requiredNodeAffinity(hostnameNotIn("ridge")),
 });
 
 const clusterIssuerName = "cloudflare-issuer";
@@ -87,6 +90,13 @@ new JellyfinChart(app, "jellyfin", {
   configPath: "/mnt/ssd1/jellyfin",
   mediaPath: "/mnt/ssd2/samba/music",
   resticRepository,
+});
+new KubePrometheusStackChart(app, "kube-prometheus-stack", {
+  grafanaHosts: ["grafana.home.karkki.org"],
+  prometheusHosts: ["prometheus.home.karkki.org"],
+  alertmanagerHosts: ["alertmanager.home.karkki.org"],
+  clusterIssuerName,
+  nodeAffinity: requiredNodeAffinity(hostnameNotIn("ridge")),
 });
 
 export default app;

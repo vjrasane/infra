@@ -35,7 +35,6 @@
     ripsecrets.enable = true;
     shellcheck.enable = true;
     shfmt.enable = true;
-    typos.enable = true;
     trim-trailing-whitespace.enable = true;
     end-of-file-fixer.enable = true;
   };
