@@ -8,13 +8,9 @@ import {
   ConfigMap,
   Protocol,
 } from "cdk8s-plus-28";
-import {
-  KubePersistentVolume,
-  KubePersistentVolumeClaim,
-  Quantity,
-} from "cdk8s-plus-28/lib/imports/k8s";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
+import { LocalVolume } from "../lib/storage";
 
 // Convert object to INI format for smb.conf
 type SmbSection = Record<string, string | number | boolean>;
@@ -46,8 +42,6 @@ export class SambaChart extends BitwardenAuthTokenChart {
     super(scope, id, { ...props, namespace });
 
     const username = "samba";
-    const pvName = "samba-pv";
-    const pvcName = "samba-data";
 
     new Namespace(this, "namespace", {
       metadata: { name: namespace },
@@ -68,50 +62,13 @@ export class SambaChart extends BitwardenAuthTokenChart {
       },
     });
 
-    // Static PersistentVolume for dedicated SSD
-    new KubePersistentVolume(this, "pv", {
-      metadata: { name: pvName },
-      spec: {
-        capacity: {
-          storage: Quantity.fromString(`${props.storageSize.toGibibytes()}Gi`),
-        },
-        accessModes: ["ReadWriteOnce"],
-        persistentVolumeReclaimPolicy: "Retain",
-        storageClassName: "",
-        local: { path: props.storagePath },
-        nodeAffinity: {
-          required: {
-            nodeSelectorTerms: [
-              {
-                matchExpressions: [
-                  {
-                    key: "kubernetes.io/hostname",
-                    operator: "In",
-                    values: [props.nodeName],
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      },
-    });
-
-    // PVC that binds to the static PV
-    new KubePersistentVolumeClaim(this, "pvc", {
-      metadata: { name: pvcName, namespace },
-      spec: {
-        accessModes: ["ReadWriteOnce"],
-        storageClassName: "",
-        volumeName: pvName,
-        resources: {
-          requests: {
-            storage: Quantity.fromString(
-              `${props.storageSize.toGibibytes()}Gi`,
-            ),
-          },
-        },
-      },
+    const { volume: dataVolume } = new LocalVolume(this, "data", {
+      pvName: "samba-pv",
+      pvcName: "samba-data",
+      namespace,
+      path: props.storagePath,
+      nodeName: props.nodeName,
+      size: props.storageSize,
     });
 
     // Samba configuration as typed object, converted to INI
@@ -149,11 +106,6 @@ export class SambaChart extends BitwardenAuthTokenChart {
         name: "samba-config",
       },
     );
-
-    // Data volume from PVC (reference by name since we used KubePersistentVolumeClaim)
-    const dataVolume = Volume.fromPersistentVolumeClaim(this, "data-volume", {
-      name: pvcName,
-    } as any);
 
     // Samba Deployment with hostNetwork for direct access via node hostname
     const podLabels = { "app.kubernetes.io/name": "samba" };
@@ -217,7 +169,6 @@ smbd --foreground --no-process-group --log-stdout`,
       credentialsSecretName: credentials.secretName,
       hostName,
       volume: dataVolume,
-      volumeMountPath: "/data",
       schedule: Cron.schedule({ minute: "0", hour: "4", weekDay: "0" }), // Sunday 4 AM
     });
 
@@ -227,7 +178,7 @@ smbd --foreground --no-process-group --log-stdout`,
       repository: props.resticRepository,
       credentialsSecretName: credentials.secretName,
       hostName,
-      schedule: Cron.schedule({ minute: "0", hour: "5", day: "1" }), // 1st of month 5 AM
+      schedule: Cron.schedule({ minute: "0", hour: "4", day: "1" }), // 1st of month 4 AM
     });
   }
 }

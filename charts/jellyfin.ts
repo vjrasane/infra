@@ -1,11 +1,9 @@
 import { Construct } from "constructs";
-import { Chart, ChartProps } from "cdk8s";
-import { Namespace, Deployment, Volume, Protocol } from "cdk8s-plus-28";
-import {
-  KubePersistentVolume,
-  KubePersistentVolumeClaim,
-  Quantity,
-} from "cdk8s-plus-28/lib/imports/k8s";
+import { ChartProps, Cron, Size } from "cdk8s";
+import { Namespace, Deployment, Protocol } from "cdk8s-plus-28";
+import { BitwardenAuthTokenChart } from "./bitwarden";
+import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
+import { LocalVolume } from "../lib/storage";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
@@ -20,109 +18,36 @@ interface JellyfinChartProps extends ChartProps {
   readonly nodeName: string;
   readonly configPath: string;
   readonly mediaPath: string;
+  readonly resticRepository: string;
 }
 
-export class JellyfinChart extends Chart {
+export class JellyfinChart extends BitwardenAuthTokenChart {
   constructor(scope: Construct, id: string, props: JellyfinChartProps) {
-    super(scope, id, { ...props });
-
     const namespace = "jellyfin";
-    const pvNameConfig = "jellyfin-config-pv";
-    const pvcNameConfig = "jellyfin-config";
-    const pvNameMedia = "jellyfin-media-pv";
-    const pvcNameMedia = "jellyfin-media";
+    super(scope, id, { ...props, namespace });
 
     new Namespace(this, "namespace", {
       metadata: { name: namespace },
     });
 
-    // Config PV/PVC (static path on ssd1)
-    new KubePersistentVolume(this, "config-pv", {
-      metadata: { name: pvNameConfig },
-      spec: {
-        capacity: { storage: Quantity.fromString("10Gi") },
-        accessModes: ["ReadWriteOnce"],
-        persistentVolumeReclaimPolicy: "Retain",
-        storageClassName: "",
-        local: { path: props.configPath },
-        nodeAffinity: {
-          required: {
-            nodeSelectorTerms: [
-              {
-                matchExpressions: [
-                  {
-                    key: "kubernetes.io/hostname",
-                    operator: "In",
-                    values: [props.nodeName],
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      },
+    const { volume: configVolume } = new LocalVolume(this, "config", {
+      pvcName: "jellyfin-config",
+      pvName: "jellyfin-config-pv",
+      namespace,
+      path: props.configPath,
+      nodeName: props.nodeName,
+      size: Size.gibibytes(10),
     });
 
-    new KubePersistentVolumeClaim(this, "config-pvc", {
-      metadata: { name: pvcNameConfig, namespace },
-      spec: {
-        accessModes: ["ReadWriteOnce"],
-        storageClassName: "",
-        volumeName: pvNameConfig,
-        resources: {
-          requests: { storage: Quantity.fromString("10Gi") },
-        },
-      },
+    const { volume: mediaVolume } = new LocalVolume(this, "media", {
+      pvcName: "jellyfin-media",
+      pvName: "jellyfin-media-pv",
+      namespace,
+      path: props.mediaPath,
+      nodeName: props.nodeName,
+      size: Size.tebibytes(1),
+      accessMode: "ReadOnlyMany",
     });
-
-    // Media PV/PVC (read-only access to music subdirectory of samba share)
-    new KubePersistentVolume(this, "media-pv", {
-      metadata: { name: pvNameMedia },
-      spec: {
-        capacity: { storage: Quantity.fromString("1Ti") },
-        accessModes: ["ReadOnlyMany"],
-        persistentVolumeReclaimPolicy: "Retain",
-        storageClassName: "",
-        local: { path: props.mediaPath },
-        nodeAffinity: {
-          required: {
-            nodeSelectorTerms: [
-              {
-                matchExpressions: [
-                  {
-                    key: "kubernetes.io/hostname",
-                    operator: "In",
-                    values: [props.nodeName],
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      },
-    });
-
-    new KubePersistentVolumeClaim(this, "media-pvc", {
-      metadata: { name: pvcNameMedia, namespace },
-      spec: {
-        accessModes: ["ReadOnlyMany"],
-        storageClassName: "",
-        volumeName: pvNameMedia,
-        resources: {
-          requests: { storage: Quantity.fromString("1Ti") },
-        },
-      },
-    });
-
-    const configVolume = Volume.fromPersistentVolumeClaim(
-      this,
-      "config-volume",
-      { name: pvcNameConfig } as any,
-    );
-
-    const mediaVolume = Volume.fromPersistentVolumeClaim(this, "media-volume", {
-      name: pvcNameMedia,
-    } as any);
 
     const podLabels = { "app.kubernetes.io/name": "jellyfin" };
     const deployment = new Deployment(this, "jellyfin", {
@@ -199,6 +124,36 @@ export class JellyfinChart extends Chart {
           secretName: certSecretName,
         },
       },
+    });
+
+    // Restic backup for config volume
+    const credentials = new ResticCredentials(this, "restic-credentials", {
+      namespace,
+      name: "jellyfin-restic-credentials", // pragma: allowlist secret
+      accessKeyIdBwSecretId: "43c2041e-177f-494d-b78a-b3d60141f01f",
+      accessKeySecretBwSecretId: "98e48367-4a09-40e0-977b-b3d60141da4d",
+      resticPasswordBwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
+    });
+
+    const hostName = "jellyfin";
+
+    new ResticBackup(this, "restic-backup", {
+      namespace,
+      name: "jellyfin-backup",
+      repository: props.resticRepository,
+      credentialsSecretName: credentials.secretName,
+      hostName,
+      volume: configVolume,
+      schedule: Cron.schedule({ minute: "0", hour: "5", weekDay: "0" }), // Sunday 5 AM
+    });
+
+    new ResticPrune(this, "restic-prune", {
+      namespace,
+      name: "jellyfin-prune",
+      repository: props.resticRepository,
+      credentialsSecretName: credentials.secretName,
+      hostName,
+      schedule: Cron.schedule({ minute: "0", hour: "5", day: "1" }), // 1st of month 5 AM
     });
   }
 }

@@ -70,7 +70,8 @@ new AuthentikChart(app, "authentik", {
 new PlankaChart(app, "planka", {
   hosts: ["planka.home.karkki.org"],
   clusterIssuerName,
-  storageClassName,
+  nodeName: "ridge",
+  dataPath: "/mnt/ssd1/planka",
 });
 new CloudflareDdnsChart(app, "cloudflare-ddns");
 new SambaChart(app, "samba", {
@@ -85,6 +86,7 @@ new JellyfinChart(app, "jellyfin", {
   nodeName: "ridge",
   configPath: "/mnt/ssd1/jellyfin",
   mediaPath: "/mnt/ssd2/samba/music",
+  resticRepository,
 });
 
 export default app;

@@ -12,11 +12,7 @@ import {
   Service,
   Protocol,
 } from "cdk8s-plus-28";
-import {
-  KubePersistentVolume,
-  KubePersistentVolumeClaim,
-  Quantity,
-} from "cdk8s-plus-28/lib/imports/k8s";
+import { LocalVolume } from "../lib/storage";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
@@ -62,53 +58,14 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       },
     });
 
-    // Static PV/PVC for PostgreSQL data
-    const dataPvName = "postgres-data-pv";
-    const dataPvcName = "postgres-data";
-
-    new KubePersistentVolume(this, "data-pv", {
-      metadata: { name: dataPvName },
-      spec: {
-        capacity: { storage: Quantity.fromString("10Gi") },
-        accessModes: ["ReadWriteOnce"],
-        persistentVolumeReclaimPolicy: "Retain",
-        storageClassName: "",
-        local: { path: props.dataPath },
-        nodeAffinity: {
-          required: {
-            nodeSelectorTerms: [
-              {
-                matchExpressions: [
-                  {
-                    key: "kubernetes.io/hostname",
-                    operator: "In",
-                    values: [props.nodeName],
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      },
+    const { volume: dataVolume } = new LocalVolume(this, "data", {
+      pvcName: "postgres-data",
+      pvName: "postgres-data-pv",
+      namespace,
+      path: props.dataPath,
+      nodeName: props.nodeName,
+      size: Size.gibibytes(10),
     });
-
-    new KubePersistentVolumeClaim(this, "data-pvc", {
-      metadata: { name: dataPvcName, namespace },
-      spec: {
-        accessModes: ["ReadWriteOnce"],
-        storageClassName: "",
-        volumeName: dataPvName,
-        resources: {
-          requests: { storage: Quantity.fromString("10Gi") },
-        },
-      },
-    });
-
-    const dataVolume = Volume.fromPersistentVolumeClaim(
-      this,
-      "data-volume",
-      { name: dataPvcName } as any,
-    );
 
     // Headless service for StatefulSet (fixed name)
     const serviceName = "postgres";
@@ -143,7 +100,10 @@ export class PostgresChart extends BitwardenAuthTokenChart {
           volumeMounts: [
             { path: "/var/lib/postgresql/data", volume: dataVolume },
           ],
-          securityContext: { ensureNonRoot: false, readOnlyRootFilesystem: false },
+          securityContext: {
+            ensureNonRoot: false,
+            readOnlyRootFilesystem: false,
+          },
           resources: {
             memory: {
               request: Size.mebibytes(256),
@@ -176,7 +136,12 @@ export class PostgresChart extends BitwardenAuthTokenChart {
         }),
       },
     });
-    const serversVolume = Volume.fromConfigMap(this, "servers-volume", serversConfig, { name: "servers" });
+    const serversVolume = Volume.fromConfigMap(
+      this,
+      "servers-volume",
+      serversConfig,
+      { name: "servers" },
+    );
 
     // pgAdmin Deployment
     const pgadminDataVolume = Volume.fromEmptyDir(
@@ -206,7 +171,9 @@ export class PostgresChart extends BitwardenAuthTokenChart {
               secret: { name: credentialsSecretName } as any,
               key: "password",
             }),
-            PGADMIN_SERVER_JSON_FILE: EnvValue.fromValue("/pgadmin4/servers.json"),
+            PGADMIN_SERVER_JSON_FILE: EnvValue.fromValue(
+              "/pgadmin4/servers.json",
+            ),
           },
           securityContext: {
             ensureNonRoot: false,
@@ -215,7 +182,11 @@ export class PostgresChart extends BitwardenAuthTokenChart {
           },
           volumeMounts: [
             { path: "/var/lib/pgadmin", volume: pgadminDataVolume },
-            { path: "/pgadmin4/servers.json", volume: serversVolume, subPath: "servers.json" },
+            {
+              path: "/pgadmin4/servers.json",
+              volume: serversVolume,
+              subPath: "servers.json",
+            },
           ],
           resources: {
             memory: {
@@ -284,53 +255,14 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
     });
 
-    // Static PV/PVC for backups
-    const backupPvName = "postgres-backups-pv";
-    const backupPvcName = "postgres-backups";
-
-    new KubePersistentVolume(this, "backup-pv", {
-      metadata: { name: backupPvName },
-      spec: {
-        capacity: { storage: Quantity.fromString("5Gi") },
-        accessModes: ["ReadWriteOnce"],
-        persistentVolumeReclaimPolicy: "Retain",
-        storageClassName: "",
-        local: { path: props.backupsPath },
-        nodeAffinity: {
-          required: {
-            nodeSelectorTerms: [
-              {
-                matchExpressions: [
-                  {
-                    key: "kubernetes.io/hostname",
-                    operator: "In",
-                    values: [props.nodeName],
-                  },
-                ],
-              },
-            ],
-          },
-        },
-      },
+    const { volume: backupVolume } = new LocalVolume(this, "backup", {
+      pvcName: "postgres-backups",
+      pvName: "postgres-backups-pv",
+      namespace,
+      path: props.backupsPath,
+      nodeName: props.nodeName,
+      size: Size.gibibytes(5),
     });
-
-    new KubePersistentVolumeClaim(this, "backup-pvc", {
-      metadata: { name: backupPvcName, namespace },
-      spec: {
-        accessModes: ["ReadWriteOnce"],
-        storageClassName: "",
-        volumeName: backupPvName,
-        resources: {
-          requests: { storage: Quantity.fromString("5Gi") },
-        },
-      },
-    });
-
-    const backupVolume = Volume.fromPersistentVolumeClaim(
-      this,
-      "backup-volume",
-      { name: backupPvcName } as any,
-    );
 
     // Daily pg_dump CronJob (runs at 2 AM)
     new CronJob(this, "daily-backup", {
@@ -374,7 +306,6 @@ ls -la /backups/`,
       credentialsSecretName: credentials.secretName,
       hostName,
       volume: backupVolume,
-      volumeMountPath: "/backups",
       schedule: Cron.schedule({ minute: "0", hour: "3", weekDay: "0" }),
     });
 
@@ -385,7 +316,7 @@ ls -la /backups/`,
       repository: props.resticRepository,
       credentialsSecretName: credentials.secretName,
       hostName,
-      schedule: Cron.schedule({ minute: "0", hour: "4", day: "1" }),
+      schedule: Cron.schedule({ minute: "0", hour: "3", day: "1" }),
     });
   }
 }

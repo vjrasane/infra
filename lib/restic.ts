@@ -25,17 +25,14 @@ export class ResticCredentials extends Construct {
         secretName: props.name,
         map: [
           {
-            // bwSecretId: "53ed67f3-9a98-4b33-974d-b3c1016ac2e1",
             bwSecretId: props.accessKeyIdBwSecretId,
             secretKeyName: "AWS_ACCESS_KEY_ID",
           },
           {
-            // bwSecretId: "6adf0a82-23c4-4906-bb68-b3c1016ad9f1",
             bwSecretId: props.accessKeySecretBwSecretId,
             secretKeyName: "AWS_SECRET_ACCESS_KEY",
           },
           {
-            // bwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
             bwSecretId: props.resticPasswordBwSecretId,
             secretKeyName: "RESTIC_PASSWORD",
           },
@@ -70,13 +67,14 @@ interface ResticBackupProps {
   readonly credentialsSecretName: string;
   readonly hostName: string;
   readonly volume: Volume;
-  readonly volumeMountPath: string;
   readonly schedule: Cron;
 }
 
 export class ResticBackup extends Construct {
   constructor(scope: Construct, id: string, props: ResticBackupProps) {
     super(scope, id);
+
+    const mountPath = `/${props.hostName}`;
 
     new CronJob(this, "cronjob", {
       metadata: { name: props.name, namespace: props.namespace },
@@ -94,7 +92,7 @@ export class ResticBackup extends Construct {
 echo "Initializing restic repo (if needed)..."
 restic snapshots || restic init
 echo "Starting restic backup..."
-restic backup --host ${props.hostName} ${props.volumeMountPath}
+restic backup --host ${props.hostName} ${mountPath}
 echo "Done. Snapshots:"
 restic snapshots`,
           ],
@@ -102,7 +100,7 @@ restic snapshots`,
             props.repository,
             props.credentialsSecretName,
           ),
-          volumeMounts: [{ path: props.volumeMountPath, volume: props.volume }],
+          volumeMounts: [{ path: mountPath, volume: props.volume }],
           securityContext: {
             ensureNonRoot: false,
             readOnlyRootFilesystem: false,
@@ -144,7 +142,7 @@ export class ResticPrune extends Construct {
           args: [
             `set -e
 echo "Pruning old snapshots..."
-restic forget --host ${props.hostName} --keep-weekly ${keepWeekly} --keep-monthly ${keepMonthly} --prune
+restic forget --host ${props.hostName} --group-by host,paths --keep-weekly ${keepWeekly} --keep-monthly ${keepMonthly} --prune
 echo "Done. Snapshots:"
 restic snapshots`,
           ],

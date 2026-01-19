@@ -1,6 +1,7 @@
 import { Construct } from "constructs";
-import { ChartProps, Helm } from "cdk8s";
+import { ChartProps, Helm, Size } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
+import { LocalVolume } from "../lib/storage";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
@@ -8,15 +9,13 @@ import {
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
-import {
-  BitwardenAuthTokenChart,
-  BitwardenOrgSecret,
-} from "./bitwarden";
+import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface PlankaChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
-  readonly storageClassName: string;
+  readonly nodeName: string;
+  readonly dataPath: string;
 }
 
 export class PlankaChart extends BitwardenAuthTokenChart {
@@ -35,7 +34,10 @@ export class PlankaChart extends BitwardenAuthTokenChart {
       spec: {
         secretName: secretKeySecretName,
         map: [
-          { bwSecretId: "1c07820c-f3d4-48a2-b393-b3bb01803ffc", secretKeyName: "key" },
+          {
+            bwSecretId: "1c07820c-f3d4-48a2-b393-b3bb01803ffc",
+            secretKeyName: "key",
+          },
         ],
       },
     });
@@ -46,8 +48,14 @@ export class PlankaChart extends BitwardenAuthTokenChart {
       spec: {
         secretName: oidcSecretName,
         map: [
-          { bwSecretId: "3cd04ac7-3019-495b-912d-b3bb018119fa", secretKeyName: "clientId" },
-          { bwSecretId: "c184e87e-72e2-4a8e-9a9d-b3bb01812bba", secretKeyName: "clientSecret" },
+          {
+            bwSecretId: "3cd04ac7-3019-495b-912d-b3bb018119fa",
+            secretKeyName: "clientId",
+          },
+          {
+            bwSecretId: "c184e87e-72e2-4a8e-9a9d-b3bb01812bba",
+            secretKeyName: "clientSecret",
+          },
         ],
       },
     });
@@ -58,9 +66,21 @@ export class PlankaChart extends BitwardenAuthTokenChart {
       spec: {
         secretName: dbUrlSecretName,
         map: [
-          { bwSecretId: "3beb8422-9bf2-4f37-a8bf-b3bb018a6953", secretKeyName: "uri" },
+          {
+            bwSecretId: "3beb8422-9bf2-4f37-a8bf-b3bb018a6953",
+            secretKeyName: "uri",
+          },
         ],
       },
+    });
+
+    new LocalVolume(this, "data", {
+      pvcName: "planka-data",
+      pvName: "planka-data-pv",
+      namespace,
+      path: props.dataPath,
+      nodeName: props.nodeName,
+      size: Size.gibibytes(5),
     });
 
     // Planka Helm chart
@@ -74,8 +94,7 @@ export class PlankaChart extends BitwardenAuthTokenChart {
         baseUrl: `https://${props.hosts[0]}`,
         persistence: {
           enabled: true,
-          size: "5Gi",
-          storageClass: props.storageClassName,
+          existingClaim: "planka-data",
         },
         postgresql: { enabled: false },
         existingSecretkeySecret: secretKeySecretName,
@@ -89,9 +108,7 @@ export class PlankaChart extends BitwardenAuthTokenChart {
             roles: ["planka-admins"],
           },
         },
-        extraEnv: [
-          { name: "OIDC_ENFORCED", value: "true" },
-        ],
+        extraEnv: [{ name: "OIDC_ENFORCED", value: "true" }],
       },
     });
 
