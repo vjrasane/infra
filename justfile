@@ -9,6 +9,9 @@ apply:
 hooks:
     @devenv tasks run devenv:git-hooks:run
 
+ansible target='all':
+    ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbook.yml --limit {{target}}
+
 backup-pqsl:
     #!/usr/bin/env bash
     set -e

@@ -17,6 +17,7 @@
   languages.typescript.enable = true;
 
   packages = [
+    pkgs.ansible
     pkgs.backblaze-b2
     pkgs.cdk8s-cli
     pkgs.kubectl

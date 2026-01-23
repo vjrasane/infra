@@ -1,0 +1,181 @@
+---
+- name: Add SSH keys
+  hosts: k3s
+  become: yes
+  tasks:
+    - name: Add local SSH keys
+      authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ lookup('file', item) }}"
+        state: present
+      loop:
+        - ~/.ssh/id_ed25519.pub
+        - ~/.ssh/id_rsa.pub
+      ignore_errors: yes
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+      notify: Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+- name: Install Tailscale
+  hosts: tailscale
+  become: yes
+  vars:
+    tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') }}"
+  tasks:
+    - name: Verify TAILSCALE_AUTH_KEY is set
+      fail:
+        msg: "TAILSCALE_AUTH_KEY environment variable is not set"
+      when: tailscale_auth_key == ''
+      delegate_to: localhost
+      run_once: true
+      become: no
+
+    - name: Check if Tailscale is installed
+      command: which tailscale
+      register: tailscale_installed
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Install Tailscale
+      shell: curl -fsSL https://tailscale.com/install.sh | sh
+      when: tailscale_installed.rc != 0
+
+    - name: Join Tailnet
+      shell: tailscale up --auth-key={{ tailscale_auth_key }}
+
+    - name: Get Tailscale IP
+      shell: tailscale ip -4
+      register: tailscale_ip_result
+      changed_when: false
+
+    - name: Set Tailscale IP fact
+      set_fact:
+        tailscale_ip: "{{ tailscale_ip_result.stdout | trim }}"
+
+- name: Initialize k3s cluster
+  hosts: k3s_init
+  become: yes
+  tasks:
+    - name: Check if k3s is installed
+      stat:
+        path: /etc/rancher/k3s/k3s.yaml
+      register: k3s_installed
+
+    - name: Install k3s (cluster init)
+      shell: |
+        curl -sfL https://get.k3s.io | sh -s - server \
+          --cluster-init \
+          --disable traefik \
+          --disable servicelb \
+          --disable local-storage \
+          --node-ip {{ tailscale_ip }} \
+          --advertise-address {{ tailscale_ip }} \
+          --flannel-iface tailscale0 \
+          --tls-san {{ inventory_hostname }} \
+          --tls-san {{ inventory_hostname }}.{{ tailscale_tailnet }} \
+          --tls-san {{ tailscale_ip }} \
+          --tls-san {{ ansible_host }} \
+          --write-kubeconfig-mode 644
+      when: not k3s_installed.stat.exists
+
+    - name: Get k3s token
+      slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token_file
+
+    - name: Set k3s token fact
+      set_fact:
+        k3s_token: "{{ k3s_token_file.content | b64decode | trim }}"
+
+- name: Join k3s cluster
+  hosts: k3s_servers
+  become: yes
+  tasks:
+    - name: Get k3s token from init node
+      slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token_file
+      delegate_to: "{{ k3s_init_node }}"
+
+    - name: Set k3s token fact
+      set_fact:
+        k3s_token: "{{ k3s_token_file.content | b64decode | trim }}"
+
+    - name: Get init node Tailscale IP
+      shell: tailscale ip -4
+      register: k3s_init_tailscale_ip_result
+      delegate_to: "{{ k3s_init_node }}"
+      changed_when: false
+
+    - name: Set init node Tailscale IP fact
+      set_fact:
+        k3s_init_tailscale_ip: "{{ k3s_init_tailscale_ip_result.stdout | trim }}"
+
+    - name: Check if k3s is installed
+      stat:
+        path: /etc/rancher/k3s/k3s.yaml
+      register: k3s_installed
+
+    - name: Install k3s (join cluster)
+      shell: |
+        curl -sfL https://get.k3s.io | K3S_TOKEN={{ k3s_token }} sh -s - server \
+          --server https://{{ k3s_init_tailscale_ip }}:6443 \
+          --disable traefik \
+          --disable servicelb \
+          --disable local-storage \
+          --node-ip {{ tailscale_ip }} \
+          --advertise-address {{ tailscale_ip }} \
+          --flannel-iface tailscale0 \
+          --tls-san {{ inventory_hostname }} \
+          --tls-san {{ inventory_hostname }}.{{ tailscale_tailnet }} \
+          --tls-san {{ tailscale_ip }} \
+          --tls-san {{ ansible_host }} \
+          --write-kubeconfig-mode 644
+      when: not k3s_installed.stat.exists
+
+- name: Join k3s cluster as agent
+  hosts: k3s_agents
+  become: yes
+  tasks:
+    - name: Get k3s token from init node
+      slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: k3s_token_file
+      delegate_to: "{{ k3s_init_node }}"
+
+    - name: Set k3s token fact
+      set_fact:
+        k3s_token: "{{ k3s_token_file.content | b64decode | trim }}"
+
+    - name: Get init node Tailscale IP
+      shell: tailscale ip -4
+      register: k3s_init_tailscale_ip_result
+      delegate_to: "{{ k3s_init_node }}"
+      changed_when: false
+
+    - name: Set init node Tailscale IP fact
+      set_fact:
+        k3s_init_tailscale_ip: "{{ k3s_init_tailscale_ip_result.stdout | trim }}"
+
+    - name: Check if k3s agent is installed
+      stat:
+        path: /usr/local/bin/k3s
+      register: k3s_installed
+
+    - name: Install k3s agent
+      shell: |
+        curl -sfL https://get.k3s.io | K3S_TOKEN={{ k3s_token }} sh -s - agent \
+          --server https://{{ k3s_init_tailscale_ip }}:6443 \
+          --node-ip {{ tailscale_ip }} \
+          --flannel-iface tailscale0
+      when: not k3s_installed.stat.exists
