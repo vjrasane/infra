@@ -58,11 +58,13 @@ export class TraefikChart extends Chart {
         ports: {
           web: {
             port: 80,
-            redirections: {
-              entryPoint: {
-                to: "websecure",
-                scheme: "https",
-                permanent: true,
+            http: {
+              redirections: {
+                entryPoint: {
+                  to: "websecure",
+                  scheme: "https",
+                  permanent: true,
+                },
               },
             },
           },

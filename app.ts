@@ -35,6 +35,7 @@ new LocalPathProvisionerChart(app, "local-path-provisioner", {
       paths: ["/mnt/block1"],
     },
     { node: "ridge", paths: [] },
+    { node: "vaio", paths: ["/var/lib/rancher/k3s/storage"] },
   ],
 });
 new TraefikChart(app, "traefik", {
