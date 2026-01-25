@@ -1,5 +1,5 @@
 import { App, Size } from "cdk8s";
-import { hostnameNotIn, requiredNodeAffinity } from "./lib/affinity";
+import { hostnameIn, hostnameNotIn, requiredNodeAffinity } from "./lib/affinity";
 import { BitwardenSecretsManagerChart } from "./charts/bitwarden";
 import { HeadlampChart } from "./charts/headlamp";
 import { MetalLBChart } from "./charts/metallb";
@@ -97,7 +97,8 @@ new KubePrometheusStackChart(app, "kube-prometheus-stack", {
   prometheusHosts: ["prometheus.home.karkki.org"],
   alertmanagerHosts: ["alertmanager.home.karkki.org"],
   clusterIssuerName,
-  nodeAffinity: requiredNodeAffinity(hostnameNotIn("ridge")),
+  nodeAffinity: requiredNodeAffinity(hostnameNotIn("vaio", "ridge")),
+  prometheusNodeAffinity: requiredNodeAffinity(hostnameIn("vaio")),
 });
 
 export default app;

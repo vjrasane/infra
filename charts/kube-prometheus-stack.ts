@@ -16,6 +16,7 @@ interface KubePrometheusStackChartProps extends ChartProps {
   readonly alertmanagerHosts: string[];
   readonly clusterIssuerName: string;
   readonly nodeAffinity?: NodeAffinity;
+  readonly prometheusNodeAffinity?: NodeAffinity;
 }
 
 export class KubePrometheusStackChart extends Chart {
@@ -85,8 +86,8 @@ export class KubePrometheusStackChart extends Chart {
                 },
               },
             },
-            affinity: props.nodeAffinity
-              ? { nodeAffinity: props.nodeAffinity }
+            affinity: props.prometheusNodeAffinity
+              ? { nodeAffinity: props.prometheusNodeAffinity }
               : {},
           },
         },
