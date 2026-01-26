@@ -8,3 +8,4 @@ imports:
   - /tmp/traefik-crds.yaml
   - /tmp/cert-manager-crds.yaml
   - /tmp/bitwarden-crd.yaml
+  - https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.79.2/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml

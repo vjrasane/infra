@@ -15,6 +15,7 @@ import { CloudflareDdnsChart } from "./charts/cloudflare-ddns";
 import { SambaChart } from "./charts/samba";
 import { JellyfinChart } from "./charts/jellyfin";
 import { KubePrometheusStackChart } from "./charts/kube-prometheus-stack";
+import { VectorChart } from "./charts/vector";
 
 const app = new App();
 
@@ -99,6 +100,11 @@ new KubePrometheusStackChart(app, "kube-prometheus-stack", {
   clusterIssuerName,
   nodeAffinity: requiredNodeAffinity(hostnameNotIn("vaio", "ridge")),
   prometheusNodeAffinity: requiredNodeAffinity(hostnameIn("vaio")),
+});
+new VectorChart(app, "vector", {
+  hosts: ["brewapi.home.karkki.org", "brewapi.karkki.org"],
+  clusterIssuerName,
+  nodeAffinity: requiredNodeAffinity(hostnameIn("vaio")),
 });
 
 export default app;
