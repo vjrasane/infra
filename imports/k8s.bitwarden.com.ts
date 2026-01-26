@@ -112,7 +112,9 @@ export interface BitwardenSecretSpec {
   readonly map?: BitwardenSecretSpecMap[];
 
   /**
-   * OnlyMappedSecrets, when true, restricts the Kubernetes Secret to only include secrets specified in SecretMap. When false or unset, all secrets accessible by the machine account are included, with SecretMap applied for renaming. Defaults to true.
+   * OnlyMappedSecrets, when true, restricts the Kubernetes Secret to only include secrets specified in SecretMap.
+   * When false or unset, all secrets accessible by the machine account are included, with SecretMap applied for renaming.
+   * Defaults to true.
    *
    * @default true.
    * @schema BitwardenSecretSpec#onlyMappedSecrets
@@ -221,3 +223,4 @@ export function toJson_BitwardenSecretSpecMap(obj: BitwardenSecretSpecMap | unde
   return Object.entries(result).reduce((r, i) => (i[1] === undefined) ? r : ({ ...r, [i[0]]: i[1] }), {});
 }
 /* eslint-enable max-len, @stylistic/max-len, quote-props, @stylistic/quote-props */
+

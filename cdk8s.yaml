@@ -3,9 +3,7 @@ app: npx ts-node main.ts
 imports:
   - https://raw.githubusercontent.com/metallb/metallb/v0.15.3/config/crd/bases/metallb.io_ipaddresspools.yaml
   - https://raw.githubusercontent.com/metallb/metallb/v0.15.3/config/crd/bases/metallb.io_l2advertisements.yaml
-  - /tmp/metallb-crds.yaml
-  - /tmp/helmchartconfig-crd.yaml
-  - /tmp/traefik-crds.yaml
-  - /tmp/cert-manager-crds.yaml
-  - /tmp/bitwarden-crd.yaml
+  - https://raw.githubusercontent.com/traefik/traefik/v3.3.3/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+  - https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.crds.yaml
+  - https://raw.githubusercontent.com/bitwarden/sm-kubernetes/main/config/crd/bases/k8s.bitwarden.com_bitwardensecrets.yaml
   - https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.79.2/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
