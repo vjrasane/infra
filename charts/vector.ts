@@ -55,7 +55,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
         auth: {
           type: "filter",
           inputs: ["webhook"],
-          condition: ".token == ${WEBHOOK_TOKEN}",
+          condition: '.token == "${WEBHOOK_TOKEN}"',
         },
         to_metrics: {
           type: "log_to_metric",
