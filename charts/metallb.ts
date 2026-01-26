@@ -1,7 +1,8 @@
 import { Construct } from "constructs";
 import { Chart, ChartProps, Helm } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
-import { IpAddressPool, L2Advertisement } from "../imports/metallb.io";
+import { IpAddressPool } from "../imports/metallb-ipaddresspools-metallb.io";
+import { L2Advertisement } from "../imports/metallb-l2advertisements-metallb.io";
 
 interface MetalLBChartProps extends ChartProps {
   readonly addresses: string[];
