@@ -2,11 +2,16 @@ import { Construct } from "constructs";
 import { ChartProps, Helm } from "cdk8s";
 import { ConfigMap, Namespace } from "cdk8s-plus-28";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
+import { needsCrowdsecProtection } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
-import { ServiceMonitor } from "../imports/monitoring.coreos.com";
+import {
+  ServiceMonitor,
+  ServiceMonitorSpecEndpointsMetricRelabelingsAction,
+} from "../imports/monitoring.coreos.com";
 import {
   IngressRoute,
   IngressRouteSpecRoutesKind,
+  IngressRouteSpecRoutesMiddlewares,
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
@@ -16,6 +21,7 @@ interface VectorChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
   readonly nodeAffinity?: NodeAffinity;
+  readonly lokiPushUrl?: string;
 }
 
 export class VectorChart extends BitwardenAuthTokenChart {
@@ -43,10 +49,10 @@ export class VectorChart extends BitwardenAuthTokenChart {
 
     const vectorConfig = {
       sources: {
-        webhook: {
+        brewapi: {
           type: "http_server",
           address: "0.0.0.0:8080",
-          path: "/webhook",
+          path: "/brewapi",
           decoding: { codec: "json" },
           query_parameters: ["token"],
         },
@@ -54,8 +60,13 @@ export class VectorChart extends BitwardenAuthTokenChart {
       transforms: {
         auth: {
           type: "filter",
-          inputs: ["webhook"],
+          inputs: ["brewapi"],
           condition: '.token == "${WEBHOOK_TOKEN}"',
+        },
+        sanitize_for_logs: {
+          type: "remap",
+          inputs: ["auth"],
+          source: "del(.token); del(.path); del(.source_type)",
         },
         to_metrics: {
           type: "log_to_metric",
@@ -89,6 +100,19 @@ export class VectorChart extends BitwardenAuthTokenChart {
           inputs: ["to_metrics"],
           address: "0.0.0.0:9598",
         },
+        ...(props.lokiPushUrl && {
+          loki: {
+            type: "loki",
+            inputs: ["sanitize_for_logs"],
+            endpoint: props.lokiPushUrl.replace("/loki/api/v1/push", ""),
+            labels: {
+              source: "brewapi",
+            },
+            encoding: {
+              codec: "json",
+            },
+          },
+        }),
       },
     };
 
@@ -108,7 +132,9 @@ export class VectorChart extends BitwardenAuthTokenChart {
         role: "Stateless-Aggregator",
         existingConfigMaps: ["vector-config"],
         dataDir: "/vector-data-dir",
-        affinity: props.nodeAffinity ? { nodeAffinity: props.nodeAffinity } : {},
+        affinity: props.nodeAffinity
+          ? { nodeAffinity: props.nodeAffinity }
+          : {},
         env: [
           {
             name: "WEBHOOK_TOKEN",
@@ -139,6 +165,11 @@ export class VectorChart extends BitwardenAuthTokenChart {
       },
     });
 
+    const crowdsecMiddleware: IngressRouteSpecRoutesMiddlewares = {
+      name: "crowdsec-bouncer",
+      namespace: "traefik",
+    };
+
     new IngressRoute(this, "ingress", {
       metadata: { name: "vector-webhook", namespace },
       spec: {
@@ -147,6 +178,9 @@ export class VectorChart extends BitwardenAuthTokenChart {
           {
             match: props.hosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
+            middlewares: needsCrowdsecProtection(props.hosts)
+              ? [crowdsecMiddleware]
+              : undefined,
             services: [
               {
                 name: "vector",
@@ -157,6 +191,134 @@ export class VectorChart extends BitwardenAuthTokenChart {
           },
         ],
         tls: { secretName: certSecretName },
+      },
+    });
+
+    new ConfigMap(this, "brew-dashboard", {
+      metadata: {
+        name: "brew-dashboard",
+        namespace,
+        labels: {
+          grafana_dashboard: "1",
+        },
+        annotations: {
+          grafana_folder: "Brew",
+        },
+      },
+      data: {
+        "brew-dashboard.json": JSON.stringify({
+          title: "Brew Monitoring",
+          uid: "brew",
+          schemaVersion: 30,
+          refresh: "30s",
+          time: { from: "now-24h", to: "now" },
+          panels: [
+            {
+              id: 1,
+              title: "Temperature",
+              type: "stat",
+              gridPos: { x: 0, y: 0, w: 4, h: 4 },
+              targets: [
+                {
+                  refId: "A",
+                  expr: 'max by (name) (brew_temperature{job="vector",name!~"test.*"})',
+                  legendFormat: "{{name}}",
+                  datasource: { type: "prometheus", uid: "prometheus" },
+                },
+              ],
+              options: { colorMode: "value", graphMode: "area" },
+              fieldConfig: { defaults: { unit: "celsius" } },
+            },
+            {
+              id: 2,
+              title: "Gravity",
+              type: "stat",
+              gridPos: { x: 0, y: 4, w: 4, h: 4 },
+              targets: [
+                {
+                  refId: "A",
+                  expr: 'max by (name) (brew_gravity{job="vector",name!~"test.*"})',
+                  legendFormat: "{{name}}",
+                  datasource: { type: "prometheus", uid: "prometheus" },
+                },
+              ],
+              options: { colorMode: "value", graphMode: "area" },
+            },
+            {
+              id: 3,
+              title: "Temperature Over Time",
+              type: "timeseries",
+              gridPos: { x: 4, y: 0, w: 10, h: 8 },
+              targets: [
+                {
+                  refId: "A",
+                  expr: 'max by (name) (last_over_time(brew_temperature{job="vector",name!~"test.*"}[5m]))',
+                  legendFormat: "{{name}}",
+                  datasource: { type: "prometheus", uid: "prometheus" },
+                },
+              ],
+              fieldConfig: {
+                defaults: {
+                  unit: "celsius",
+                  custom: {
+                    drawStyle: "line",
+                    lineInterpolation: "smooth",
+                    lineWidth: 2,
+                    showPoints: "never",
+                    spanNulls: true,
+                  },
+                },
+              },
+            },
+            {
+              id: 4,
+              title: "Gravity Over Time",
+              type: "timeseries",
+              gridPos: { x: 14, y: 0, w: 10, h: 8 },
+              targets: [
+                {
+                  refId: "A",
+                  expr: 'max by (name) (last_over_time(brew_gravity{job="vector",name!~"test.*"}[5m]))',
+                  legendFormat: "{{name}}",
+                  datasource: { type: "prometheus", uid: "prometheus" },
+                },
+              ],
+              fieldConfig: {
+                defaults: {
+                  custom: {
+                    drawStyle: "line",
+                    lineInterpolation: "smooth",
+                    lineWidth: 2,
+                    showPoints: "never",
+                    spanNulls: true,
+                  },
+                },
+              },
+            },
+            {
+              id: 5,
+              title: "Recent Logs",
+              type: "logs",
+              gridPos: { x: 0, y: 18, w: 24, h: 8 },
+              targets: [
+                {
+                  refId: "A",
+                  expr: '{source="brewapi"} | json | name!~"test.*"',
+                  datasource: { type: "loki", uid: "loki" },
+                },
+              ],
+              options: {
+                showTime: true,
+                showLabels: false,
+                showCommonLabels: false,
+                wrapLogMessage: true,
+                prettifyLogMessage: true,
+                enableLogDetails: true,
+                sortOrder: "Descending",
+              },
+            },
+          ],
+        }),
       },
     });
 
@@ -173,6 +335,13 @@ export class VectorChart extends BitwardenAuthTokenChart {
           {
             port: "prometheus",
             interval: "30s",
+            metricRelabelings: [
+              {
+                sourceLabels: ["job"],
+                regex: ".*-headless",
+                action: ServiceMonitorSpecEndpointsMetricRelabelingsAction.DROP,
+              },
+            ],
           },
         ],
       },

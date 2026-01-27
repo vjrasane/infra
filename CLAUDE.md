@@ -1,1 +1,2 @@
-- consider k8s directory to be its own collection. ignore eveything else for now
+- this repo uses devenv to manage tools and the environment, check devenv and direnv files first when modifying the development environment
+- always use kubernetes mcp for interacting with the cluster

@@ -23,7 +23,7 @@
   handlers:
     - name: Restart sshd
       service:
-        name: sshd
+        name: ssh
         state: restarted
 
 - name: Install Tailscale
@@ -179,3 +179,50 @@
           --node-ip {{ tailscale_ip }} \
           --flannel-iface tailscale0
       when: not k3s_installed.stat.exists
+
+- name: Configure firewall for metrics ports
+  hosts: k3s
+  become: yes
+  tasks:
+    - name: Get Tailscale IP
+      shell: tailscale ip -4
+      register: tailscale_ip_result
+      changed_when: false
+
+    - name: Set Tailscale IP fact
+      set_fact:
+        tailscale_ip: "{{ tailscale_ip_result.stdout | trim }}"
+
+    - name: Block metrics ports to other IPs
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "{{ item }}"
+        jump: DROP
+        comment: "Block {{ item }} from public"
+      loop:
+        - "9100"
+        - "9101"
+
+    - name: Allow metrics ports to Tailscale IP
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "{{ item }}"
+        destination: "{{ tailscale_ip }}"
+        jump: ACCEPT
+        action: insert
+        comment: "Allow {{ item }} to Tailscale IP"
+      loop:
+        - "9100"
+        - "9101"
+
+    - name: Install iptables-persistent
+      apt:
+        name: iptables-persistent
+        state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Save iptables rules
+      shell: netfilter-persistent save

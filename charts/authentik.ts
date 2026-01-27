@@ -1,10 +1,12 @@
 import { Construct } from "constructs";
 import { ChartProps, Helm } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
+import { needsCrowdsecProtection } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
   IngressRouteSpecRoutesKind,
+  IngressRouteSpecRoutesMiddlewares,
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
@@ -119,6 +121,11 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
     });
 
     // IngressRoute
+    const crowdsecMiddleware: IngressRouteSpecRoutesMiddlewares = {
+      name: "crowdsec-bouncer",
+      namespace: "traefik",
+    };
+
     new IngressRoute(this, "ingress", {
       metadata: {
         name: "authentik",
@@ -139,6 +146,9 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
           {
             match: props.hosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
+            middlewares: needsCrowdsecProtection(props.hosts)
+              ? [crowdsecMiddleware]
+              : undefined,
             services: [
               {
                 name: "authentik-server",

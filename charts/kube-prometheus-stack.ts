@@ -1,17 +1,20 @@
 import { Construct } from "constructs";
 import { Chart, ChartProps, Helm, Include } from "cdk8s";
-import { ConfigMap, Namespace } from "cdk8s-plus-28";
+import { Namespace } from "cdk8s-plus-28";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
+import { needsCrowdsecProtection } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
   IngressRouteSpecRoutesKind,
+  IngressRouteSpecRoutesMiddlewares,
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
 
 interface KubePrometheusStackChartProps extends ChartProps {
   readonly grafanaHosts: string[];
+  readonly grafanaRootUrl: string;
   readonly prometheusHosts: string[];
   readonly alertmanagerHosts: string[];
   readonly clusterIssuerName: string;
@@ -63,16 +66,51 @@ export class KubePrometheusStackChart extends Chart {
       values: {
         grafana: {
           adminPassword: "admin",
+          initChownData: {
+            enabled: false,
+          },
+          "grafana.ini": {
+            server: {
+              root_url: props.grafanaRootUrl,
+            },
+          },
+          sidecar: {
+            dashboards: {
+              searchNamespace: "ALL",
+              folderAnnotation: "grafana_folder",
+              provider: {
+                foldersFromFilesStructure: true,
+              },
+            },
+            datasources: {
+              initDatasources: true,
+              skipReload: true,
+              watchMethod: "LIST",
+            },
+          },
           persistence: {
             enabled: true,
             size: "1Gi",
           },
+          additionalDataSources: [
+            {
+              name: "Loki",
+              type: "loki",
+              uid: "loki",
+              url: "http://loki.monitoring.svc.cluster.local:3100",
+              access: "proxy",
+              isDefault: false,
+            },
+          ],
           affinity: props.nodeAffinity
             ? { nodeAffinity: props.nodeAffinity }
             : {},
         },
         prometheus: {
           prometheusSpec: {
+            enableAdminAPI: true,
+            serviceMonitorSelector: {},
+            serviceMonitorSelectorNilUsesHelmValues: false,
             retention: "15d",
             retentionSize: "10GB",
             storageSpec: {
@@ -112,40 +150,6 @@ export class KubePrometheusStackChart extends Chart {
       },
     });
 
-    // Example: Custom dashboard via ConfigMap
-    // The sidecar watches for ConfigMaps with label grafana_dashboard=1
-    new ConfigMap(this, "example-dashboard", {
-      metadata: {
-        name: "example-dashboard",
-        namespace,
-        labels: {
-          grafana_dashboard: "1",
-        },
-      },
-      data: {
-        // Key must end in .json
-        "example-dashboard.json": JSON.stringify({
-          title: "Example Dashboard",
-          uid: "example",
-          schemaVersion: 30,
-          panels: [
-            {
-              id: 1,
-              title: "CPU Usage",
-              type: "timeseries",
-              gridPos: { x: 0, y: 0, w: 12, h: 8 },
-              targets: [
-                {
-                  expr: '100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)',
-                  legendFormat: "CPU %",
-                },
-              ],
-            },
-          ],
-        }),
-      },
-    });
-
     const grafanaCertSecretName = "grafana-tls";
     new Certificate(this, "grafana-cert", {
       metadata: {
@@ -161,6 +165,11 @@ export class KubePrometheusStackChart extends Chart {
         dnsNames: props.grafanaHosts,
       },
     });
+
+    const crowdsecMiddleware: IngressRouteSpecRoutesMiddlewares = {
+      name: "crowdsec-bouncer",
+      namespace: "traefik",
+    };
 
     new IngressRoute(this, "grafana-ingress", {
       metadata: {
@@ -181,6 +190,9 @@ export class KubePrometheusStackChart extends Chart {
           {
             match: props.grafanaHosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
+            middlewares: needsCrowdsecProtection(props.grafanaHosts)
+              ? [crowdsecMiddleware]
+              : undefined,
             services: [
               {
                 name: "kube-prometheus-stack-grafana",

@@ -1,5 +1,15 @@
 import { App, Size } from "cdk8s";
-import { hostnameIn, hostnameNotIn, requiredNodeAffinity } from "./lib/affinity";
+import {
+  hostnameIn,
+  hostnameNotIn,
+  requiredNodeAffinity,
+} from "./lib/affinity";
+import {
+  allSubdomains,
+  cloudSubdomain,
+  homeDomain,
+  homeSubdomain,
+} from "./lib/hosts";
 import { BitwardenSecretsManagerChart } from "./charts/bitwarden";
 import { HeadlampChart } from "./charts/headlamp";
 import { MetalLBChart } from "./charts/metallb";
@@ -16,6 +26,9 @@ import { SambaChart } from "./charts/samba";
 import { JellyfinChart } from "./charts/jellyfin";
 import { KubePrometheusStackChart } from "./charts/kube-prometheus-stack";
 import { VectorChart } from "./charts/vector";
+import { LokiChart } from "./charts/loki";
+import { CrowdSecChart } from "./charts/crowdsec";
+import { HAProxyChart } from "./charts/haproxy";
 
 const app = new App();
 
@@ -39,8 +52,13 @@ new LocalPathProvisionerChart(app, "local-path-provisioner", {
     { node: "vaio", paths: ["/var/lib/rancher/k3s/storage"] },
   ],
 });
+new CrowdSecChart(app, "crowdsec");
+new HAProxyChart(app, "haproxy", {
+  traefikServiceHost: "traefik.traefik.svc.cluster.local",
+  nodeAffinity: requiredNodeAffinity(hostnameNotIn("vaio", "ridge")),
+});
 new TraefikChart(app, "traefik", {
-  affinity: requiredNodeAffinity(hostnameNotIn("ridge")),
+  crowdsecBouncerEnabled: true,
 });
 
 const clusterIssuerName = "cloudflare-issuer";
@@ -48,19 +66,19 @@ new CertManagerChart(app, "cert-manager", {
   clusterIssuerName,
 });
 new HeadlampChart(app, "headlamp", {
-  hosts: ["headlamp.home.karkki.org"],
+  hosts: [homeSubdomain("headlamp")],
   clusterIssuerName,
 });
 new TraefikDashboardChart(app, "traefik-dashboard", {
-  hosts: ["traefik.home.karkki.org"],
+  hosts: [homeSubdomain("traefik")],
   clusterIssuerName,
 });
 new HomepageChart(app, "homepage", {
-  hosts: ["home.karkki.org"],
+  hosts: [homeDomain],
   clusterIssuerName,
 });
 const postgresChart = new PostgresChart(app, "postgres", {
-  hosts: ["pgadmin.home.karkki.org"],
+  hosts: [homeSubdomain("pgadmin")],
   clusterIssuerName,
   nodeName: "ridge",
   dataPath: "/mnt/ssd1/postgres",
@@ -68,12 +86,12 @@ const postgresChart = new PostgresChart(app, "postgres", {
   resticRepository,
 });
 new AuthentikChart(app, "authentik", {
-  hosts: ["auth.home.karkki.org"],
+  hosts: allSubdomains("auth"),
   clusterIssuerName,
   postgresHost: postgresChart.serviceHost,
 });
 new PlankaChart(app, "planka", {
-  hosts: ["planka.home.karkki.org"],
+  hosts: allSubdomains("planka"),
   clusterIssuerName,
   nodeName: "ridge",
   dataPath: "/mnt/ssd1/planka",
@@ -86,7 +104,7 @@ new SambaChart(app, "samba", {
   resticRepository,
 });
 new JellyfinChart(app, "jellyfin", {
-  hosts: ["jellyfin.karkki.org", "jellyfin.home.karkki.org"],
+  hosts: allSubdomains("jellyfin"),
   clusterIssuerName,
   nodeName: "ridge",
   configPath: "/mnt/ssd1/jellyfin",
@@ -94,17 +112,22 @@ new JellyfinChart(app, "jellyfin", {
   resticRepository,
 });
 new KubePrometheusStackChart(app, "kube-prometheus-stack", {
-  grafanaHosts: ["grafana.home.karkki.org"],
-  prometheusHosts: ["prometheus.home.karkki.org"],
-  alertmanagerHosts: ["alertmanager.home.karkki.org"],
+  grafanaHosts: allSubdomains("grafana"),
+  grafanaRootUrl: `https://${cloudSubdomain("grafana")}`,
+  prometheusHosts: [homeSubdomain("prometheus")],
+  alertmanagerHosts: [homeSubdomain("alertmanager")],
   clusterIssuerName,
   nodeAffinity: requiredNodeAffinity(hostnameNotIn("vaio", "ridge")),
   prometheusNodeAffinity: requiredNodeAffinity(hostnameIn("vaio")),
 });
+const lokiChart = new LokiChart(app, "loki", {
+  nodeAffinity: requiredNodeAffinity(hostnameIn("vaio")),
+});
 new VectorChart(app, "vector", {
-  hosts: ["brewapi.home.karkki.org", "brewapi.karkki.org"],
+  hosts: allSubdomains("vector"),
   clusterIssuerName,
   nodeAffinity: requiredNodeAffinity(hostnameIn("vaio")),
+  lokiPushUrl: lokiChart.pushUrl,
 });
 
 export default app;
