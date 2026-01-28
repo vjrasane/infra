@@ -1,6 +1,6 @@
 import { Construct } from "constructs";
 import { Cron } from "cdk8s";
-import { CronJob, EnvValue, Volume } from "cdk8s-plus-28";
+import { CronJob, Env, EnvValue, Secret, Volume } from "cdk8s-plus-28";
 import { BitwardenOrgSecret } from "../charts/bitwarden";
 
 interface ResticCredentialsProps {
@@ -42,24 +42,6 @@ export class ResticCredentials extends Construct {
   }
 }
 
-function resticEnvVariables(repository: string, credentialsSecretName: string) {
-  return {
-    RESTIC_REPOSITORY: EnvValue.fromValue(repository),
-    RESTIC_PASSWORD: EnvValue.fromSecretValue({
-      secret: { name: credentialsSecretName } as any,
-      key: "RESTIC_PASSWORD",
-    }),
-    AWS_ACCESS_KEY_ID: EnvValue.fromSecretValue({
-      secret: { name: credentialsSecretName } as any,
-      key: "AWS_ACCESS_KEY_ID",
-    }),
-    AWS_SECRET_ACCESS_KEY: EnvValue.fromSecretValue({
-      secret: { name: credentialsSecretName } as any,
-      key: "AWS_SECRET_ACCESS_KEY",
-    }),
-  };
-}
-
 interface ResticBackupProps {
   readonly namespace: string;
   readonly name: string;
@@ -75,6 +57,11 @@ export class ResticBackup extends Construct {
     super(scope, id);
 
     const mountPath = `/${props.hostName}`;
+    const credentialsSecret = Secret.fromSecretName(
+      this,
+      "credentials",
+      props.credentialsSecretName,
+    );
 
     new CronJob(this, "cronjob", {
       metadata: { name: props.name, namespace: props.namespace },
@@ -96,10 +83,10 @@ restic backup --host ${props.hostName} ${mountPath}
 echo "Done. Snapshots:"
 restic snapshots`,
           ],
-          envVariables: resticEnvVariables(
-            props.repository,
-            props.credentialsSecretName,
-          ),
+          envVariables: {
+            RESTIC_REPOSITORY: EnvValue.fromValue(props.repository),
+          },
+          envFrom: [Env.fromSecret(credentialsSecret)],
           volumeMounts: [{ path: mountPath, volume: props.volume }],
           securityContext: {
             ensureNonRoot: false,
@@ -128,6 +115,11 @@ export class ResticPrune extends Construct {
 
     const keepWeekly = props.keepWeekly ?? 4;
     const keepMonthly = props.keepMonthly ?? 6;
+    const credentialsSecret = Secret.fromSecretName(
+      this,
+      "credentials",
+      props.credentialsSecretName,
+    );
 
     new CronJob(this, "cronjob", {
       metadata: { name: props.name, namespace: props.namespace },
@@ -146,10 +138,10 @@ restic forget --host ${props.hostName} --group-by host,paths --keep-weekly ${kee
 echo "Done. Snapshots:"
 restic snapshots`,
           ],
-          envVariables: resticEnvVariables(
-            props.repository,
-            props.credentialsSecretName,
-          ),
+          envVariables: {
+            RESTIC_REPOSITORY: EnvValue.fromValue(props.repository),
+          },
+          envFrom: [Env.fromSecret(credentialsSecret)],
           securityContext: {
             ensureNonRoot: false,
             readOnlyRootFilesystem: false,

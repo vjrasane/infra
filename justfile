@@ -19,17 +19,26 @@ hooks:
 ansible target='all':
     ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbook.yml --limit {{target}}
 
-backup-pqsl:
+backup-psql:
     #!/usr/bin/env bash
     set -e
     TIMESTAMP=$(date +%s)
     DAILY_JOB="manual-daily-backup-$TIMESTAMP"
-    WEEKLY_JOB="manual-weekly-backup-$TIMESTAMP"
+    RESTIC_JOB="manual-restic-backup-$TIMESTAMP"
     echo "Starting daily pg_dump backup..."
     kubectl create job --from=cronjob/postgres-daily-backup $DAILY_JOB -n postgres
     kubectl wait --for=condition=complete job/$DAILY_JOB -n postgres --timeout=300s
-    echo "Daily backup complete. Starting restic backup to B2..."
-    kubectl create job --from=cronjob/postgres-weekly-backup $WEEKLY_JOB -n postgres
-    kubectl wait --for=condition=complete job/$WEEKLY_JOB -n postgres --timeout=600s
+    echo "Daily backup complete. Starting restic backup..."
+    kubectl create job --from=cronjob/postgres-backup $RESTIC_JOB -n postgres
+    kubectl wait --for=condition=complete job/$RESTIC_JOB -n postgres --timeout=600s
     echo "Restic backup complete."
-    kubectl logs -n postgres job/$WEEKLY_JOB --tail=10
+    kubectl logs -n postgres job/$RESTIC_JOB --tail=10
+
+restore-psql:
+    #!/usr/bin/env bash
+    set -e
+    kubectl delete job -n postgres postgres-restore-manual --ignore-not-found
+    kubectl create job --from=cronjob/postgres-restore -n postgres postgres-restore-manual
+    kubectl wait --for=condition=complete job/postgres-restore-manual -n postgres --timeout=600s
+    echo "Restore complete."
+    kubectl logs -n postgres job/postgres-restore-manual

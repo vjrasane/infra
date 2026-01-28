@@ -1,6 +1,7 @@
 import { Construct } from "constructs";
-import { ChartProps, Helm } from "cdk8s";
+import { ChartProps } from "cdk8s";
 import { ConfigMap, Namespace } from "cdk8s-plus-28";
+import { Vector } from "../imports/vector";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
 import { getPublicSecurityMiddlewares } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
@@ -122,9 +123,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
       },
     });
 
-    new Helm(this, "vector", {
-      chart: "vector",
-      repo: "https://helm.vector.dev",
+    new Vector(this, "vector", {
       namespace,
       releaseName: "vector",
       values: {

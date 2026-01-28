@@ -8,4 +8,8 @@ imports:
   - https://raw.githubusercontent.com/bitwarden/sm-kubernetes/main/config/crd/bases/k8s.bitwarden.com_bitwardensecrets.yaml
   - https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.79.2/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
   - helm:https://traefik.github.io/charts/traefik@39.0.0
+  - helm:https://prometheus-community.github.io/helm-charts/kube-prometheus-stack@81.2.2
+  - helm:https://crowdsecurity.github.io/helm-charts/crowdsec@0.22.0
+  - helm:https://helm.vector.dev/vector@0.50.0
+  - helm:https://grafana.github.io/helm-charts/loki@6.51.0
   - https://raw.githubusercontent.com/traefik/traefik/v3.3/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml

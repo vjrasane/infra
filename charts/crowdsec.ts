@@ -1,7 +1,8 @@
 import { Construct } from "constructs";
-import { ChartProps, Helm } from "cdk8s";
+import { ChartProps } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
 import * as yaml from "yaml";
+import { Crowdsec } from "../imports/crowdsec";
 import { Middleware } from "../imports/traefik.io";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
@@ -66,9 +67,7 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
       console_management: true,
     };
 
-    new Helm(this, "crowdsec", {
-      chart: "crowdsec",
-      repo: "https://crowdsecurity.github.io/helm-charts",
+    new Crowdsec(this, "crowdsec", {
       namespace,
       releaseName: "crowdsec",
       values: {
@@ -131,7 +130,7 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
             },
           },
         },
-      },
+      } as any,
     });
 
     new Middleware(this, "bouncer-middleware", {

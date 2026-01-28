@@ -34,6 +34,8 @@ const app = new App();
 
 const resticRepository =
   "s3:s3.eu-central-003.backblazeb2.com/karkkinet-restic-repo";
+const psqlResticRepository =
+  "s3:485029190166e70f3358ab9fc87c6b4f.r2.cloudflarestorage.com/karkkinet-psql-backups";
 
 new BitwardenSecretsManagerChart(app, "bitwarden");
 new MetalLBChart(app, "metallb", {
@@ -81,10 +83,8 @@ new HomepageChart(app, "homepage", {
 const postgresChart = new PostgresChart(app, "postgres", {
   hosts: [homeSubdomain("pgadmin")],
   clusterIssuerName,
-  nodeName: "ridge",
-  dataPath: "/mnt/ssd1/postgres",
-  backupsPath: "/mnt/ssd1/postgres-backup",
-  resticRepository,
+  resticRepository: psqlResticRepository,
+  storageClassName,
 });
 new AuthentikChart(app, "authentik", {
   hosts: allSubdomains("auth"),

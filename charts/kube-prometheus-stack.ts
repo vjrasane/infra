@@ -1,6 +1,7 @@
 import { Construct } from "constructs";
-import { Chart, ChartProps, Helm, Include } from "cdk8s";
+import { Chart, ChartProps, Include } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
+import { Kubeprometheusstack } from "../imports/kube-prometheus-stack";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
 import { getPublicSecurityMiddlewares } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
@@ -56,9 +57,7 @@ export class KubePrometheusStackChart extends Chart {
       });
     }
 
-    new Helm(this, "kube-prometheus-stack", {
-      chart: "kube-prometheus-stack",
-      repo: "https://prometheus-community.github.io/helm-charts",
+    new Kubeprometheusstack(this, "kube-prometheus-stack", {
       namespace: namespace,
       releaseName: "kube-prometheus-stack",
       helmFlags: ["--skip-crds"],

@@ -5,14 +5,17 @@ import {
   StatefulSet,
   Deployment,
   EnvValue,
+  Env,
   Volume,
   Cpu,
   ConfigMap,
   CronJob,
   Service,
   Protocol,
+  PersistentVolumeAccessMode,
+  PersistentVolumeClaim,
+  Secret,
 } from "cdk8s-plus-28";
-import { LocalVolume } from "../lib/storage";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
@@ -26,10 +29,8 @@ import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
 interface PostgresChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
-  readonly nodeName: string;
-  readonly dataPath: string;
-  readonly backupsPath: string;
   readonly resticRepository: string;
+  readonly storageClassName: string;
 }
 
 export class PostgresChart extends BitwardenAuthTokenChart {
@@ -58,14 +59,17 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const { volume: dataVolume } = new LocalVolume(this, "data", {
-      pvcName: "postgres-data",
-      pvName: "postgres-data-pv",
-      namespace,
-      path: props.dataPath,
-      nodeName: props.nodeName,
-      size: Size.gibibytes(10),
+    const dataPvc = new PersistentVolumeClaim(this, "data-pvc", {
+      metadata: { name: "postgres-data", namespace },
+      storageClassName: props.storageClassName,
+      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
+      storage: Size.gibibytes(10),
     });
+    const dataVolume = Volume.fromPersistentVolumeClaim(
+      this,
+      "data-volume",
+      dataPvc,
+    );
 
     // Headless service for StatefulSet (fixed name)
     const serviceName = "postgres";
@@ -246,23 +250,26 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       },
     });
 
-    // Restic credentials for B2 backups (uses postgres admin password as restic password)
+    // Restic credentials for Cloudflare R2 backups (uses postgres admin password as restic password)
     const credentials = new ResticCredentials(this, "restic-credentials", {
       namespace,
       name: "postgres-restic-credentials", // pragma: allowlist secret
-      accessKeyIdBwSecretId: "43c2041e-177f-494d-b78a-b3d60141f01f",
-      accessKeySecretBwSecretId: "98e48367-4a09-40e0-977b-b3d60141da4d",
+      accessKeyIdBwSecretId: "cddf0c0b-52b1-4ca7-bdb5-b3e000f29516",
+      accessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
       resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
     });
 
-    const { volume: backupVolume } = new LocalVolume(this, "backup", {
-      pvcName: "postgres-backups",
-      pvName: "postgres-backups-pv",
-      namespace,
-      path: props.backupsPath,
-      nodeName: props.nodeName,
-      size: Size.gibibytes(5),
+    const backupPvc = new PersistentVolumeClaim(this, "backup-pvc", {
+      metadata: { name: "postgres-backups", namespace },
+      storageClassName: props.storageClassName,
+      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
+      storage: Size.gibibytes(5),
     });
+    const backupVolume = Volume.fromPersistentVolumeClaim(
+      this,
+      "backup-volume",
+      backupPvc,
+    );
 
     // Daily pg_dump CronJob (runs at 2 AM)
     new CronJob(this, "daily-backup", {
@@ -278,7 +285,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
             `set -e
 DATE=$(date +%Y-%m-%d)
 echo "Starting backup for $DATE..."
-PGPASSWORD=$PGPASSWORD pg_dump -h ${serviceName} -U postgres -d postgres > /backups/daily-$DATE.sql
+PGPASSWORD=$PGPASSWORD pg_dumpall -h ${serviceName} -U postgres > /backups/daily-$DATE.sql
 echo "Backup complete. Cleaning up old backups..."
 find /backups -name "daily-*.sql" -mtime +7 -delete
 echo "Done. Current backups:"
@@ -296,8 +303,8 @@ ls -la /backups/`,
       ],
     });
 
-    // Weekly restic backup (runs Sunday at 3 AM)
-    const hostName = "postgres";
+    // Daily restic backup (runs at 3 AM, after pg_dump at 2 AM)
+    const hostName = "backup-psql";
 
     new ResticBackup(this, "restic-backup", {
       namespace,
@@ -306,7 +313,7 @@ ls -la /backups/`,
       credentialsSecretName: credentials.secretName,
       hostName,
       volume: backupVolume,
-      schedule: Cron.schedule({ minute: "0", hour: "3", weekDay: "0" }),
+      schedule: Cron.schedule({ minute: "0", hour: "3" }),
     });
 
     // Monthly prune (runs 1st of month at 4 AM)
@@ -317,6 +324,80 @@ ls -la /backups/`,
       credentialsSecretName: credentials.secretName,
       hostName,
       schedule: Cron.schedule({ minute: "0", hour: "3", day: "1" }),
+    });
+
+    // Suspended restore job - trigger manually with:
+    // kubectl create job --from=cronjob/postgres-restore -n postgres postgres-restore-manual
+    const resticSecret = Secret.fromSecretName(
+      this,
+      "restic-secret-ref",
+      credentials.secretName,
+    );
+    const pgSecret = Secret.fromSecretName(
+      this,
+      "pg-secret-ref",
+      credentialsSecretName,
+    );
+    new CronJob(this, "restore", {
+      metadata: { name: "postgres-restore", namespace },
+      schedule: Cron.schedule({ minute: "0", hour: "0", day: "1", month: "1" }),
+      suspend: true,
+      successfulJobsRetained: 1,
+      failedJobsRetained: 1,
+      volumes: [backupVolume],
+      initContainers: [
+        {
+          name: "restic-restore",
+          image: "restic/restic:latest",
+          command: ["/bin/sh", "-c"],
+          args: [
+            `set -e
+echo "Restoring latest snapshot from restic..."
+restic restore latest --target /backups --host ${hostName}
+echo "Restore complete. Available backups:"
+ls -la /backups/`,
+          ],
+          envVariables: {
+            RESTIC_REPOSITORY: EnvValue.fromValue(props.resticRepository),
+          },
+          envFrom: [Env.fromSecret(resticSecret)],
+          volumeMounts: [{ path: "/backups", volume: backupVolume }],
+          securityContext: {
+            ensureNonRoot: false,
+            readOnlyRootFilesystem: false,
+          },
+        },
+      ],
+      containers: [
+        {
+          name: "psql-import",
+          image: "postgres:17-alpine",
+          command: ["/bin/sh", "-c"],
+          args: [
+            `set -e
+echo "Finding latest backup..."
+LATEST=$(ls -t /backups/backups/*.sql 2>/dev/null | head -1)
+if [ -z "$LATEST" ]; then
+  echo "No SQL backup found!"
+  exit 1
+fi
+echo "Importing $LATEST into postgres..."
+PGPASSWORD=$PGPASSWORD psql -h ${serviceName} -U postgres -d postgres -f "$LATEST"
+echo "Import complete."`,
+          ],
+          envVariables: {
+            PGPASSWORD: EnvValue.fromSecretValue({
+              secret: pgSecret,
+              key: "password",
+            }),
+          },
+          volumeMounts: [{ path: "/backups", volume: backupVolume }],
+          securityContext: {
+            ensureNonRoot: false,
+            readOnlyRootFilesystem: false,
+          },
+        },
+      ],
     });
   }
 }
