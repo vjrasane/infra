@@ -1,16 +1,17 @@
 import { Construct } from "constructs";
 import { ChartProps, Helm } from "cdk8s";
-import { ConfigMap, Namespace } from "cdk8s-plus-28";
+import { Namespace } from "cdk8s-plus-28";
+import * as yaml from "yaml";
 import { Middleware } from "../imports/traefik.io";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
-import * as yaml from "yaml";
 
 interface CrowdSecChartProps extends ChartProps {
   readonly traefikNamespace?: string;
 }
 
 export class CrowdSecChart extends BitwardenAuthTokenChart {
-  readonly serviceName = "crowdsec-service";
+  readonly lapiServiceName = "crowdsec-service";
+  readonly appsecServiceName = "crowdsec-appsec-service";
   readonly lapiPort = 8080;
   readonly appsecPort = 7422;
   readonly lapiHost: string;
@@ -26,8 +27,8 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
       metadata: { name: namespace },
     });
 
-    this.lapiHost = `${this.serviceName}.${namespace}.svc.cluster.local:${this.lapiPort}`;
-    this.appsecHost = `${this.serviceName}.${namespace}.svc.cluster.local:${this.appsecPort}`;
+    this.lapiHost = `${this.lapiServiceName}.${namespace}.svc.cluster.local:${this.lapiPort}`;
+    this.appsecHost = `${this.appsecServiceName}.${namespace}.svc.cluster.local:${this.appsecPort}`;
 
     const enrollKeySecretName = "crowdsec-enroll-key";
     new BitwardenOrgSecret(this, "enroll-key-secret", {
@@ -57,25 +58,13 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const acquisConfig = {
-      source: "appsec",
-      listen_addr: `0.0.0.0:${this.appsecPort}`,
-      path: "/",
-      appsec_config: "crowdsecurity/appsec-default",
-      labels: {
-        type: "appsec",
-      },
+    const consoleConfig = {
+      share_manual_decisions: true,
+      share_tainted: true,
+      share_custom: true,
+      share_context: true,
+      console_management: true,
     };
-
-    new ConfigMap(this, "acquis-config", {
-      metadata: {
-        name: "acquis-config",
-        namespace,
-      },
-      data: {
-        "acquis.yaml": yaml.stringify(acquisConfig),
-      },
-    });
 
     new Helm(this, "crowdsec", {
       chart: "crowdsec",
@@ -85,6 +74,9 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
       values: {
         tests: { enabled: false },
         container_runtime: "containerd",
+        config: {
+          "console.yaml": yaml.stringify(consoleConfig),
+        },
         lapi: {
           env: [
             {
@@ -99,19 +91,30 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
             { name: "ENROLL_INSTANCE_NAME", value: "k8s-cluster" },
             { name: "ENROLL_TAGS", value: "k8s linux traefik" },
           ],
-          extraMounts: [
-            {
-              name: "acquis-config",
-              mountPath: "/etc/crowdsec/acquis.d",
-              configMapName: "acquis-config",
-            },
-          ],
           metrics: {
             enabled: true,
             serviceMonitor: {
               enabled: true,
             },
           },
+        },
+        appsec: {
+          enabled: true,
+          acquisitions: [
+            {
+              source: "appsec",
+              listen_addr: `0.0.0.0:${this.appsecPort}`,
+              path: "/",
+              appsec_config: "crowdsecurity/virtual-patching",
+              labels: { type: "appsec" },
+            },
+          ],
+          env: [
+            {
+              name: "COLLECTIONS",
+              value: "crowdsecurity/appsec-virtual-patching",
+            },
+          ],
         },
         agent: {
           acquisition: [
@@ -140,14 +143,13 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
         plugin: {
           "crowdsec-bouncer-traefik-plugin": {
             enabled: true,
-            crowdsecMode: "live",
+            crowdsecMode: "stream",
             crowdsecAppsecEnabled: true,
             crowdsecAppsecHost: this.appsecHost,
             crowdsecLapiScheme: "http",
             crowdsecLapiHost: this.lapiHost,
             crowdsecLapiKeyFile: "/etc/traefik/crowdsec-bouncer-key/api-key",
-            updateIntervalSeconds: 15,
-            defaultDecisionSeconds: 15,
+            updateIntervalSeconds: 60,
           },
         },
       },

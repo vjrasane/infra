@@ -1,7 +1,11 @@
+import * as fs from "fs";
+import * as path from "path";
 import { Construct } from "constructs";
 import { ChartProps, Helm, Include } from "cdk8s";
-import { Namespace } from "cdk8s-plus-28";
+import { ConfigMap, Namespace } from "cdk8s-plus-28";
+import { ServiceMonitor } from "../imports/monitoring.coreos.com";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
+import { createSecurityMiddlewares } from "../lib/security";
 
 interface TraefikChartProps extends ChartProps {
   readonly values?: Record<string, unknown>;
@@ -23,6 +27,9 @@ export class TraefikChart extends BitwardenAuthTokenChart {
     new Include(this, "crds", {
       url: "https://raw.githubusercontent.com/traefik/traefik/v3.3/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml",
     });
+
+    // Security middlewares (headers, rate limiting)
+    createSecurityMiddlewares(this);
 
     const bouncerKeySecretName = "crowdsec-bouncer-key";
     const crowdsecPlugin = props.crowdsecBouncerEnabled
@@ -65,7 +72,8 @@ export class TraefikChart extends BitwardenAuthTokenChart {
       repo: "https://traefik.github.io/charts",
       namespace: namespace,
       releaseName: "traefik",
-      helmFlags: ["--skip-crds"],
+      version: "39.0.0",
+      helmFlags: ["--skip-crds", "--set", "ports.metrics.expose.default=true"],
       values: {
         autoscaling: {
           enabled: true,
@@ -93,10 +101,6 @@ export class TraefikChart extends BitwardenAuthTokenChart {
           },
         },
         ports: {
-          metrics: {
-            port: 9101,
-            exposedPort: 9101,
-          },
           web: {
             port: 80,
             http: {
@@ -111,11 +115,59 @@ export class TraefikChart extends BitwardenAuthTokenChart {
           },
           websecure: {
             port: 443,
+            transport: {
+              respondingTimeouts: {
+                readTimeout: "30s",
+                writeTimeout: "30s",
+                idleTimeout: "180s",
+              },
+              lifeCycle: {
+                requestAcceptGraceTimeout: "5s",
+                graceTimeOut: "10s",
+              },
+            },
           },
         },
         ...crowdsecPlugin,
         ...props.values,
       },
     });
+
+    new ServiceMonitor(this, "service-monitor", {
+      metadata: { name: "traefik", namespace },
+      spec: {
+        selector: {
+          matchLabels: {
+            "app.kubernetes.io/instance": "traefik-traefik",
+            "app.kubernetes.io/name": "traefik",
+          },
+        },
+        endpoints: [
+          {
+            port: "metrics",
+            interval: "30s",
+          },
+        ],
+      },
+    });
+
+    const dashboardPath = path.join(__dirname, "../dashboards/traefik.json");
+    if (fs.existsSync(dashboardPath)) {
+      const dashboardJson = fs
+        .readFileSync(dashboardPath, "utf-8")
+        .replace(/\$\{DS_PROMETHEUS\}/g, "prometheus");
+
+      new ConfigMap(this, "dashboard", {
+        metadata: {
+          name: "traefik-dashboard",
+          namespace,
+          labels: { grafana_dashboard: "1" },
+          annotations: { grafana_folder: "Traefik" },
+        },
+        data: {
+          "traefik.json": dashboardJson,
+        },
+      });
+    }
   }
 }

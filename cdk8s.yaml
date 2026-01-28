@@ -7,3 +7,4 @@ imports:
   - https://github.com/cert-manager/cert-manager/releases/download/v1.19.2/cert-manager.crds.yaml
   - https://raw.githubusercontent.com/bitwarden/sm-kubernetes/main/config/crd/bases/k8s.bitwarden.com_bitwardensecrets.yaml
   - https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.79.2/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+  - helm:https://traefik.github.io/charts/traefik@39.0.0

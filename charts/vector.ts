@@ -2,7 +2,7 @@ import { Construct } from "constructs";
 import { ChartProps, Helm } from "cdk8s";
 import { ConfigMap, Namespace } from "cdk8s-plus-28";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
-import { needsCrowdsecProtection } from "../lib/hosts";
+import { getPublicSecurityMiddlewares } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   ServiceMonitor,
@@ -11,7 +11,6 @@ import {
 import {
   IngressRoute,
   IngressRouteSpecRoutesKind,
-  IngressRouteSpecRoutesMiddlewares,
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
@@ -165,11 +164,6 @@ export class VectorChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const crowdsecMiddleware: IngressRouteSpecRoutesMiddlewares = {
-      name: "crowdsec-bouncer",
-      namespace: "traefik",
-    };
-
     new IngressRoute(this, "ingress", {
       metadata: { name: "vector-webhook", namespace },
       spec: {
@@ -178,9 +172,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
           {
             match: props.hosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
-            middlewares: needsCrowdsecProtection(props.hosts)
-              ? [crowdsecMiddleware]
-              : undefined,
+            middlewares: getPublicSecurityMiddlewares(props.hosts),
             services: [
               {
                 name: "vector",
@@ -243,6 +235,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
                 },
               ],
               options: { colorMode: "value", graphMode: "area" },
+              fieldConfig: { defaults: { decimals: 3 } },
             },
             {
               id: 3,
@@ -285,6 +278,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
               ],
               fieldConfig: {
                 defaults: {
+                  decimals: 3,
                   custom: {
                     drawStyle: "line",
                     lineInterpolation: "smooth",

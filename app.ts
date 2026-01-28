@@ -38,6 +38,7 @@ const resticRepository =
 new BitwardenSecretsManagerChart(app, "bitwarden");
 new MetalLBChart(app, "metallb", {
   addresses: ["192.168.1.200-192.168.1.230"],
+  nodeAffinity: requiredNodeAffinity(hostnameIn("ridge")),
 });
 const storageClassName = "local-path";
 new LocalPathProvisionerChart(app, "local-path-provisioner", {
@@ -96,7 +97,9 @@ new PlankaChart(app, "planka", {
   nodeName: "ridge",
   dataPath: "/mnt/ssd1/planka",
 });
-new CloudflareDdnsChart(app, "cloudflare-ddns");
+new CloudflareDdnsChart(app, "cloudflare-ddns", {
+  nodeName: "ridge",
+});
 new SambaChart(app, "samba", {
   storageSize: Size.tebibytes(1),
   storagePath: "/mnt/ssd2/samba",

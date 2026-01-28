@@ -1,3 +1,10 @@
+# Download external dependencies (dashboards, etc.)
+download:
+    @mkdir -p dashboards
+    @echo "Downloading Traefik dashboard..."
+    @curl -sL "https://grafana.com/api/dashboards/17346/revisions/latest/download" -o dashboards/traefik.json
+    @echo "Done."
+
 # Fetch the Headlamp admin token
 headlamp-token:
     @kubectl get secret headlamp-admin-token -n headlamp -o jsonpath='{.data.token}' | base64 -d && echo

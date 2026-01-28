@@ -1,10 +1,11 @@
 import { Construct } from "constructs";
 import { ChartProps, Cron } from "cdk8s";
-import { Namespace, CronJob, EnvValue } from "cdk8s-plus-28";
+import { Namespace, CronJob, EnvValue, Node } from "cdk8s-plus-28";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface CloudflareDdnsChartProps extends ChartProps {
   readonly schedule?: string;
+  readonly nodeName?: string;
 }
 
 export class CloudflareDdnsChart extends BitwardenAuthTokenChart {
@@ -34,7 +35,7 @@ export class CloudflareDdnsChart extends BitwardenAuthTokenChart {
       },
     });
 
-    new CronJob(this, "cloudflare-ddns", {
+    const cronJob = new CronJob(this, "cloudflare-ddns", {
       metadata: { name: "cloudflare-ddns", namespace },
       schedule: Cron.schedule({ minute: "*/5" }),
       successfulJobsRetained: 1,
@@ -64,5 +65,9 @@ export class CloudflareDdnsChart extends BitwardenAuthTokenChart {
         },
       ],
     });
+
+    if (props.nodeName) {
+      cronJob.scheduling.assign(Node.named(props.nodeName));
+    }
   }
 }

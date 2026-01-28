@@ -2,12 +2,11 @@ import { Construct } from "constructs";
 import { ChartProps, Helm, Size } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
 import { LocalVolume } from "../lib/storage";
-import { needsCrowdsecProtection } from "../lib/hosts";
+import { getPublicSecurityMiddlewares } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
   IngressRouteSpecRoutesKind,
-  IngressRouteSpecRoutesMiddlewares,
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
@@ -129,11 +128,6 @@ export class PlankaChart extends BitwardenAuthTokenChart {
     });
 
     // IngressRoute
-    const crowdsecMiddleware: IngressRouteSpecRoutesMiddlewares = {
-      name: "crowdsec-bouncer",
-      namespace: "traefik",
-    };
-
     new IngressRoute(this, "ingress", {
       metadata: {
         name: "planka",
@@ -154,9 +148,7 @@ export class PlankaChart extends BitwardenAuthTokenChart {
           {
             match: props.hosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
-            middlewares: needsCrowdsecProtection(props.hosts)
-              ? [crowdsecMiddleware]
-              : undefined,
+            middlewares: getPublicSecurityMiddlewares(props.hosts),
             services: [
               {
                 name: "planka",

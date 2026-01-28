@@ -2,12 +2,11 @@ import { Construct } from "constructs";
 import { Chart, ChartProps, Helm, Include } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
-import { needsCrowdsecProtection } from "../lib/hosts";
+import { getPublicSecurityMiddlewares } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
   IngressRouteSpecRoutesKind,
-  IngressRouteSpecRoutesMiddlewares,
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
@@ -166,11 +165,6 @@ export class KubePrometheusStackChart extends Chart {
       },
     });
 
-    const crowdsecMiddleware: IngressRouteSpecRoutesMiddlewares = {
-      name: "crowdsec-bouncer",
-      namespace: "traefik",
-    };
-
     new IngressRoute(this, "grafana-ingress", {
       metadata: {
         name: "grafana",
@@ -190,9 +184,7 @@ export class KubePrometheusStackChart extends Chart {
           {
             match: props.grafanaHosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
-            middlewares: needsCrowdsecProtection(props.grafanaHosts)
-              ? [crowdsecMiddleware]
-              : undefined,
+            middlewares: getPublicSecurityMiddlewares(props.grafanaHosts),
             services: [
               {
                 name: "kube-prometheus-stack-grafana",
@@ -245,6 +237,7 @@ export class KubePrometheusStackChart extends Chart {
               .map((h) => `Host(\`${h}\`)`)
               .join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
+            middlewares: getPublicSecurityMiddlewares(props.prometheusHosts),
             services: [
               {
                 name: "kube-prometheus-stack-prometheus",
@@ -297,6 +290,7 @@ export class KubePrometheusStackChart extends Chart {
               .map((h) => `Host(\`${h}\`)`)
               .join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
+            middlewares: getPublicSecurityMiddlewares(props.alertmanagerHosts),
             services: [
               {
                 name: "kube-prometheus-stack-alertmanager",

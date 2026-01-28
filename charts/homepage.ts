@@ -11,12 +11,11 @@ import {
   Volume,
   ApiResource,
 } from "cdk8s-plus-28";
-import { needsCrowdsecProtection } from "../lib/hosts";
+import { getPublicSecurityMiddlewares } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
   IngressRouteSpecRoutesKind,
-  IngressRouteSpecRoutesMiddlewares,
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
@@ -216,11 +215,6 @@ export class HomepageChart extends Chart {
       },
     });
 
-    const crowdsecMiddleware: IngressRouteSpecRoutesMiddlewares = {
-      name: "crowdsec-bouncer",
-      namespace: "traefik",
-    };
-
     new IngressRoute(this, "ingress", {
       metadata: {
         name: "homepage",
@@ -240,9 +234,7 @@ export class HomepageChart extends Chart {
           {
             match: props.hosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
-            middlewares: needsCrowdsecProtection(props.hosts)
-              ? [crowdsecMiddleware]
-              : undefined,
+            middlewares: getPublicSecurityMiddlewares(props.hosts),
             services: [
               {
                 name: service.name,
