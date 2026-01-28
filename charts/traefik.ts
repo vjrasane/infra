@@ -1,9 +1,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Construct } from "constructs";
-import { ChartProps, Helm, Include } from "cdk8s";
+import { ChartProps, Include } from "cdk8s";
 import { ConfigMap, Namespace } from "cdk8s-plus-28";
 import { ServiceMonitor } from "../imports/monitoring.coreos.com";
+import { Traefik, TraefikValues } from "../imports/traefik";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 import { createSecurityMiddlewares } from "../lib/security";
 
@@ -32,105 +33,103 @@ export class TraefikChart extends BitwardenAuthTokenChart {
     createSecurityMiddlewares(this);
 
     const bouncerKeySecretName = "crowdsec-bouncer-key";
-    const crowdsecPlugin = props.crowdsecBouncerEnabled
-      ? (() => {
-          new BitwardenOrgSecret(this, "bouncer-key-secret", {
-            metadata: { name: bouncerKeySecretName, namespace },
-            spec: {
-              secretName: bouncerKeySecretName,
-              map: [
-                {
-                  bwSecretId: "e462ab7b-f219-4fd9-b8c0-b3df00ea0e48",
-                  secretKeyName: "api-key",
-                },
-              ],
-            },
-          });
-          return {
-            experimental: {
-              plugins: {
-                "crowdsec-bouncer-traefik-plugin": {
-                  moduleName:
-                    "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin",
-                  version: "v1.3.5",
-                },
-              },
-            },
-            volumes: [
-              {
-                name: bouncerKeySecretName,
-                mountPath: "/etc/traefik/crowdsec-bouncer-key",
-                type: "secret",
-              },
-            ],
-          };
-        })()
-      : {};
-
-    new Helm(this, "traefik", {
-      chart: "traefik",
-      repo: "https://traefik.github.io/charts",
-      namespace: namespace,
-      releaseName: "traefik",
-      version: "39.0.0",
-      helmFlags: ["--skip-crds", "--set", "ports.metrics.expose.default=true"],
-      values: {
-        autoscaling: {
-          enabled: true,
-          minReplicas: 2,
-          maxReplicas: 5,
-          metrics: [
+    if (props.crowdsecBouncerEnabled) {
+      new BitwardenOrgSecret(this, "bouncer-key-secret", {
+        metadata: { name: bouncerKeySecretName, namespace },
+        spec: {
+          secretName: bouncerKeySecretName,
+          map: [
             {
-              type: "Resource",
-              resource: {
-                name: "cpu",
-                target: {
-                  type: "Utilization",
-                  averageUtilization: 80,
-                },
-              },
+              bwSecretId: "e462ab7b-f219-4fd9-b8c0-b3df00ea0e48",
+              secretKeyName: "api-key",
             },
           ],
         },
-        service: {
-          type: "ClusterIP",
-        },
-        providers: {
-          kubernetesCRD: {
-            allowCrossNamespace: true,
-          },
-        },
-        ports: {
-          web: {
-            port: 80,
-            http: {
-              redirections: {
-                entryPoint: {
-                  to: "websecure",
-                  scheme: "https",
-                  permanent: true,
-                },
+      });
+    }
+
+    const values: TraefikValues = {
+      autoscaling: {
+        enabled: true,
+        minReplicas: 2,
+        maxReplicas: 5,
+        metrics: [
+          {
+            type: "Resource",
+            resource: {
+              name: "cpu",
+              target: {
+                type: "Utilization",
+                averageUtilization: 80,
               },
             },
           },
-          websecure: {
-            port: 443,
-            transport: {
-              respondingTimeouts: {
-                readTimeout: "30s",
-                writeTimeout: "30s",
-                idleTimeout: "180s",
-              },
-              lifeCycle: {
-                requestAcceptGraceTimeout: "5s",
-                graceTimeOut: "10s",
-              },
-            },
-          },
-        },
-        ...crowdsecPlugin,
-        ...props.values,
+        ],
       },
+      service: {
+        type: "ClusterIP",
+      },
+      providers: {
+        kubernetesCrd: {
+          allowCrossNamespace: true,
+        },
+      },
+      ports: {
+        metrics: {
+          expose: { default: true },
+        },
+        web: {
+          port: 80,
+          http: {
+            redirections: {
+              entryPoint: {
+                to: "websecure",
+                scheme: "https",
+                permanent: true,
+              },
+            },
+          },
+        },
+        websecure: {
+          port: 443,
+          transport: {
+            respondingTimeouts: {
+              readTimeout: "30s",
+              writeTimeout: "30s",
+              idleTimeout: "180s",
+            },
+            lifeCycle: {
+              requestAcceptGraceTimeout: "5s",
+              graceTimeOut: "10s",
+            },
+          },
+        },
+      },
+      ...(props.crowdsecBouncerEnabled && {
+        experimental: {
+          plugins: {
+            "crowdsec-bouncer-traefik-plugin": {
+              moduleName:
+                "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin",
+              version: "v1.3.5",
+            },
+          },
+        },
+        volumes: [
+          {
+            name: bouncerKeySecretName,
+            mountPath: "/etc/traefik/crowdsec-bouncer-key",
+            type: "secret",
+          },
+        ],
+      }),
+    };
+
+    new Traefik(this, "traefik", {
+      namespace,
+      releaseName: "traefik",
+      helmFlags: ["--skip-crds"],
+      values,
     });
 
     new ServiceMonitor(this, "service-monitor", {
