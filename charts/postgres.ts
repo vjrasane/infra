@@ -24,7 +24,7 @@ import {
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
-import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
+import { ResticCredentials } from "../lib/restic";
 
 interface PostgresChartProps extends ChartProps {
   readonly hosts: string[];
@@ -259,41 +259,44 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
     });
 
-    const backupPvc = new PersistentVolumeClaim(this, "backup-pvc", {
-      metadata: { name: "postgres-backups", namespace },
-      storageClassName: props.storageClassName,
-      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
-      storage: Size.gibibytes(5),
-    });
-    const backupVolume = Volume.fromPersistentVolumeClaim(
+    const hostName = "backup-psql";
+    const backupVolume = Volume.fromEmptyDir(this, "backup-volume", "backup-data");
+    const pgSecret = Secret.fromSecretName(
       this,
-      "backup-volume",
-      backupPvc,
+      "pg-secret-ref",
+      credentialsSecretName,
+    );
+    const resticSecret = Secret.fromSecretName(
+      this,
+      "restic-secret-ref",
+      credentials.secretName,
     );
 
-    // Daily pg_dump CronJob (runs at 2 AM)
+    // Daily backup CronJob (runs at 2 AM)
+    // Init container: pg_dumpall to emptyDir
+    // Main container: restic backup to remote
     new CronJob(this, "daily-backup", {
-      metadata: { name: "postgres-daily-backup", namespace },
+      metadata: { name: "postgres-backup", namespace },
       schedule: Cron.schedule({ minute: "0", hour: "2" }),
+      successfulJobsRetained: 1,
+      failedJobsRetained: 1,
       volumes: [backupVolume],
-      containers: [
+      initContainers: [
         {
-          name: "backup",
+          name: "pg-dump",
           image: "postgres:17-alpine",
           command: ["/bin/sh", "-c"],
           args: [
             `set -e
 DATE=$(date +%Y-%m-%d)
-echo "Starting backup for $DATE..."
+echo "Starting pg_dumpall for $DATE..."
 PGPASSWORD=$PGPASSWORD pg_dumpall -h ${serviceName} -U postgres > /backups/daily-$DATE.sql
-echo "Backup complete. Cleaning up old backups..."
-find /backups -name "daily-*.sql" -mtime +7 -delete
-echo "Done. Current backups:"
+echo "Backup complete:"
 ls -la /backups/`,
           ],
           envVariables: {
             PGPASSWORD: EnvValue.fromSecretValue({
-              secret: { name: credentialsSecretName } as any,
+              secret: pgSecret,
               key: "password",
             }),
           },
@@ -301,50 +304,45 @@ ls -la /backups/`,
           securityContext: { ensureNonRoot: false },
         },
       ],
-    });
-
-    // Daily restic backup (runs at 3 AM, after pg_dump at 2 AM)
-    const hostName = "backup-psql";
-
-    new ResticBackup(this, "restic-backup", {
-      namespace,
-      name: "postgres-backup",
-      repository: props.resticRepository,
-      credentialsSecretName: credentials.secretName,
-      hostName,
-      volume: backupVolume,
-      schedule: Cron.schedule({ minute: "0", hour: "3" }),
-    });
-
-    // Monthly prune (runs 1st of month at 4 AM)
-    new ResticPrune(this, "restic-prune", {
-      namespace,
-      name: "postgres-prune",
-      repository: props.resticRepository,
-      credentialsSecretName: credentials.secretName,
-      hostName,
-      schedule: Cron.schedule({ minute: "0", hour: "3", day: "1" }),
+      containers: [
+        {
+          name: "restic-backup",
+          image: "restic/restic:latest",
+          command: ["/bin/sh", "-c"],
+          args: [
+            `set -e
+echo "Initializing restic repo (if needed)..."
+restic snapshots || restic init
+echo "Starting restic backup..."
+restic backup --host ${hostName} /backups
+echo "Backup complete. Pruning old snapshots..."
+restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+echo "Done. Current snapshots:"
+restic snapshots`,
+          ],
+          envVariables: {
+            RESTIC_REPOSITORY: EnvValue.fromValue(props.resticRepository),
+          },
+          envFrom: [Env.fromSecret(resticSecret)],
+          volumeMounts: [{ path: "/backups", volume: backupVolume }],
+          securityContext: {
+            ensureNonRoot: false,
+            readOnlyRootFilesystem: false,
+          },
+        },
+      ],
     });
 
     // Suspended restore job - trigger manually with:
     // kubectl create job --from=cronjob/postgres-restore -n postgres postgres-restore-manual
-    const resticSecret = Secret.fromSecretName(
-      this,
-      "restic-secret-ref",
-      credentials.secretName,
-    );
-    const pgSecret = Secret.fromSecretName(
-      this,
-      "pg-secret-ref",
-      credentialsSecretName,
-    );
+    const restoreVolume = Volume.fromEmptyDir(this, "restore-volume", "restore-data");
     new CronJob(this, "restore", {
       metadata: { name: "postgres-restore", namespace },
       schedule: Cron.schedule({ minute: "0", hour: "0", day: "1", month: "1" }),
       suspend: true,
       successfulJobsRetained: 1,
       failedJobsRetained: 1,
-      volumes: [backupVolume],
+      volumes: [restoreVolume],
       initContainers: [
         {
           name: "restic-restore",
@@ -353,15 +351,15 @@ ls -la /backups/`,
           args: [
             `set -e
 echo "Restoring latest snapshot from restic..."
-restic restore latest --target /backups --host ${hostName}
+restic restore latest --target /restore --host ${hostName}
 echo "Restore complete. Available backups:"
-ls -la /backups/`,
+ls -la /restore/`,
           ],
           envVariables: {
             RESTIC_REPOSITORY: EnvValue.fromValue(props.resticRepository),
           },
           envFrom: [Env.fromSecret(resticSecret)],
-          volumeMounts: [{ path: "/backups", volume: backupVolume }],
+          volumeMounts: [{ path: "/restore", volume: restoreVolume }],
           securityContext: {
             ensureNonRoot: false,
             readOnlyRootFilesystem: false,
@@ -376,7 +374,7 @@ ls -la /backups/`,
           args: [
             `set -e
 echo "Finding latest backup..."
-LATEST=$(ls -t /backups/backups/*.sql 2>/dev/null | head -1)
+LATEST=$(ls -t /restore/backups/*.sql 2>/dev/null | head -1)
 if [ -z "$LATEST" ]; then
   echo "No SQL backup found!"
   exit 1
@@ -391,7 +389,7 @@ echo "Import complete."`,
               key: "password",
             }),
           },
-          volumeMounts: [{ path: "/backups", volume: backupVolume }],
+          volumeMounts: [{ path: "/restore", volume: restoreVolume }],
           securityContext: {
             ensureNonRoot: false,
             readOnlyRootFilesystem: false,
