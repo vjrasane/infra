@@ -50,10 +50,10 @@ frontend https
     default_backend traefik_https
 
 backend traefik_http
-    server traefik ${props.traefikServiceHost}:${httpPort} check
+    server traefik ${props.traefikServiceHost.replace(/\.?$/, ".")}:${httpPort} check
 
 backend traefik_https
-    server traefik ${props.traefikServiceHost}:${httpsPort} check
+    server traefik ${props.traefikServiceHost.replace(/\.?$/, ".")}:${httpsPort} check
 `,
       },
     });

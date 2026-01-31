@@ -29,6 +29,7 @@ import { VectorChart } from "./charts/vector";
 import { LokiChart } from "./charts/loki";
 import { CrowdSecChart } from "./charts/crowdsec";
 import { HAProxyChart } from "./charts/haproxy";
+import { ImmichChart } from "./charts/immich";
 
 const app = new App();
 
@@ -42,9 +43,7 @@ new MetalLBChart(app, "metallb", {
   addresses: ["192.168.1.200-192.168.1.230"],
   nodeAffinity: requiredNodeAffinity(hostnameIn("ridge")),
 });
-const storageClassName = "local-path";
 new LocalPathProvisionerChart(app, "local-path-provisioner", {
-  storageClassName,
   affinity: requiredNodeAffinity(hostnameNotIn("ridge")),
   nodePathMap: [
     {
@@ -86,12 +85,10 @@ new PostgresChart(app, "postgres", {
   hosts: [homeSubdomain("pgadmin")],
   clusterIssuerName,
   resticRepository: psqlResticRepository,
-  storageClassName,
 });
 new AuthentikChart(app, "authentik", {
   hosts: allSubdomains("auth"),
   clusterIssuerName,
-  storageClassName,
   resticRepository: psqlResticRepository,
 });
 new PlankaChart(app, "planka", {
@@ -134,6 +131,12 @@ new VectorChart(app, "vector", {
   clusterIssuerName,
   nodeAffinity: requiredNodeAffinity(hostnameIn("vaio")),
   lokiPushUrl: lokiChart.pushUrl,
+});
+new ImmichChart(app, "immich", {
+  hosts: allSubdomains("immich"),
+  clusterIssuerName,
+  nodeName: "oracle",
+  resticRepository: psqlResticRepository,
 });
 
 export default app;

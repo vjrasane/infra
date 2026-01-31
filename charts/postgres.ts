@@ -12,8 +12,6 @@ import {
   CronJob,
   Service,
   Protocol,
-  PersistentVolumeAccessMode,
-  PersistentVolumeClaim,
   Secret,
 } from "cdk8s-plus-28";
 import { Certificate } from "../imports/cert-manager.io";
@@ -25,12 +23,12 @@ import {
 } from "../imports/traefik.io";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 import { ResticCredentials } from "../lib/restic";
+import { LocalPathPvc } from "../lib/local-path";
 
 interface PostgresChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
   readonly resticRepository: string;
-  readonly storageClassName: string;
 }
 
 export class PostgresChart extends BitwardenAuthTokenChart {
@@ -59,17 +57,11 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const dataPvc = new PersistentVolumeClaim(this, "data-pvc", {
-      metadata: { name: "postgres-data", namespace },
-      storageClassName: props.storageClassName,
-      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
-      storage: Size.gibibytes(10),
-    });
-    const dataVolume = Volume.fromPersistentVolumeClaim(
-      this,
-      "data-volume",
-      dataPvc,
-    );
+    const dataVolume = new LocalPathPvc(this, "data-pvc", {
+      name: "postgres-data",
+      namespace,
+      size: Size.gibibytes(10),
+    }).toVolume("data-volume");
 
     // Headless service for StatefulSet (fixed name)
     const serviceName = "postgres";
@@ -260,7 +252,11 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     });
 
     const hostName = "backup-psql";
-    const backupVolume = Volume.fromEmptyDir(this, "backup-volume", "backup-data");
+    const backupVolume = Volume.fromEmptyDir(
+      this,
+      "backup-volume",
+      "backup-data",
+    );
     const pgSecret = Secret.fromSecretName(
       this,
       "pg-secret-ref",
@@ -335,7 +331,11 @@ restic snapshots`,
 
     // Suspended restore job - trigger manually with:
     // kubectl create job --from=cronjob/postgres-restore -n postgres postgres-restore-manual
-    const restoreVolume = Volume.fromEmptyDir(this, "restore-volume", "restore-data");
+    const restoreVolume = Volume.fromEmptyDir(
+      this,
+      "restore-volume",
+      "restore-data",
+    );
     new CronJob(this, "restore", {
       metadata: { name: "postgres-restore", namespace },
       schedule: Cron.schedule({ minute: "0", hour: "0", day: "1", month: "1" }),

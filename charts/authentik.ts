@@ -8,16 +8,13 @@ import {
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
-import {
-  BitwardenAuthTokenChart,
-  BitwardenOrgSecret,
-} from "./bitwarden";
+import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 import { PostgresBackup } from "../lib/postgres-backup";
+import { LOCAL_PATH_STORAGE_CLASS_NAME } from "../lib/local-path";
 
 interface AuthentikChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
-  readonly storageClassName: string;
   readonly resticRepository: string;
 }
 
@@ -37,7 +34,10 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       spec: {
         secretName: secretKeySecretName,
         map: [
-          { bwSecretId: "008e8051-67ef-462b-949a-b3bb0181855b", secretKeyName: "AUTHENTIK_SECRET_KEY" },
+          {
+            bwSecretId: "008e8051-67ef-462b-949a-b3bb0181855b",
+            secretKeyName: "AUTHENTIK_SECRET_KEY",
+          },
         ],
       },
     });
@@ -48,8 +48,14 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       spec: {
         secretName: bootstrapSecretName,
         map: [
-          { bwSecretId: "0e60acee-ac8e-4411-b8a6-b3c10136eae9", secretKeyName: "AUTHENTIK_BOOTSTRAP_EMAIL" },
-          { bwSecretId: "da979324-1d40-4ac4-a812-b3c101370203", secretKeyName: "AUTHENTIK_BOOTSTRAP_PASSWORD" },
+          {
+            bwSecretId: "0e60acee-ac8e-4411-b8a6-b3c10136eae9",
+            secretKeyName: "AUTHENTIK_BOOTSTRAP_EMAIL",
+          },
+          {
+            bwSecretId: "da979324-1d40-4ac4-a812-b3c101370203",
+            secretKeyName: "AUTHENTIK_BOOTSTRAP_PASSWORD",
+          },
         ],
       },
     });
@@ -60,7 +66,10 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       spec: {
         secretName: dbSecretName,
         map: [
-          { bwSecretId: "395b1143-3eea-4071-b3f0-b3bb01819829", secretKeyName: "password" },
+          {
+            bwSecretId: "395b1143-3eea-4071-b3f0-b3bb01819829",
+            secretKeyName: "password",
+          },
         ],
       },
     });
@@ -99,7 +108,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
           primary: {
             persistence: {
               enabled: true,
-              storageClass: props.storageClassName,
+              storageClass: LOCAL_PATH_STORAGE_CLASS_NAME,
               size: "10Gi",
             },
             resources: {
@@ -169,9 +178,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
           {
             match: props.hosts.map((h) => `Host(\`${h}\`)`).join(" || "),
             kind: IngressRouteSpecRoutesKind.RULE,
-            middlewares: [
-              { name: "crowdsec-bouncer", namespace: "traefik" },
-            ],
+            middlewares: [{ name: "crowdsec-bouncer", namespace: "traefik" }],
             services: [
               {
                 name: "authentik-server",
