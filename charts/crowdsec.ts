@@ -1,6 +1,6 @@
 import { Construct } from "constructs";
-import { ChartProps } from "cdk8s";
-import { Namespace } from "cdk8s-plus-28";
+import { Cron, ChartProps } from "cdk8s";
+import { Namespace, CronJob, ServiceAccount, Role, RoleBinding, ApiResource } from "cdk8s-plus-28";
 import * as yaml from "yaml";
 import { Crowdsec } from "../imports/crowdsec";
 import { Middleware } from "../imports/traefik.io";
@@ -8,6 +8,7 @@ import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface CrowdSecChartProps extends ChartProps {
   readonly traefikNamespace?: string;
+  readonly blockedCountries?: string[];
 }
 
 export class CrowdSecChart extends BitwardenAuthTokenChart {
@@ -58,6 +59,8 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
         ],
       },
     });
+
+    const blockedCountries = props.blockedCountries ?? [];
 
     const consoleConfig = {
       share_manual_decisions: true,
@@ -123,6 +126,12 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
               program: "traefik",
             },
           ],
+          env: [
+            {
+              name: "PARSERS",
+              value: "crowdsecurity/geoip-enrich",
+            },
+          ],
           metrics: {
             enabled: true,
             serviceMonitor: {
@@ -150,11 +159,63 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
             crowdsecLapiScheme: "http",
             crowdsecLapiHost: this.lapiHost,
             crowdsecLapiKeyFile: "/etc/traefik/crowdsec-bouncer-key/api-key",
+            updateMaxFailure: -1,
             updateIntervalSeconds: 60,
             forwardedHeadersTrustedIPs: "10.42.0.0/16",
           },
         },
       },
     });
+
+    if (blockedCountries.length > 0) {
+      const geoBlockSa = new ServiceAccount(this, "geo-block-sa", {
+        metadata: { name: "crowdsec-geo-block", namespace },
+      });
+
+      const geoBlockRole = new Role(this, "geo-block-role", {
+        metadata: { name: "crowdsec-geo-block", namespace },
+      });
+      geoBlockRole.allow(["get", "list"], ApiResource.PODS);
+      geoBlockRole.allow(
+        ["create"],
+        ApiResource.custom({ apiGroup: "", resourceType: "pods/exec" }),
+      );
+      geoBlockRole.allow(
+        ["get"],
+        ApiResource.custom({ apiGroup: "apps", resourceType: "deployments" }),
+      );
+
+      new RoleBinding(this, "geo-block-rolebinding", {
+        metadata: { name: "crowdsec-geo-block", namespace },
+        role: geoBlockRole,
+      }).addSubjects(geoBlockSa);
+
+      const cscliCommands = blockedCountries
+        .map((c) => `cscli decisions add --scope Country --value ${c} --duration 8760h --reason geo-block`)
+        .join(" && ");
+
+      new CronJob(this, "geo-block-cronjob", {
+        metadata: { name: "crowdsec-geo-block", namespace },
+        schedule: Cron.schedule({ minute: "0", hour: "0", day: "1" }), // 1st of month
+        successfulJobsRetained: 1,
+        failedJobsRetained: 1,
+        serviceAccount: geoBlockSa,
+        automountServiceAccountToken: true,
+        containers: [
+          {
+            name: "geo-block",
+            image: "bitnami/kubectl:latest",
+            command: ["/bin/sh", "-c"],
+            args: [
+              `kubectl exec -n ${namespace} deploy/crowdsec-lapi -- sh -c "${cscliCommands}" && echo "Geo-block decisions refreshed"`,
+            ],
+            securityContext: {
+              ensureNonRoot: false,
+              readOnlyRootFilesystem: false,
+            },
+          },
+        ],
+      });
+    }
   }
 }

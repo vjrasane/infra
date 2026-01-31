@@ -12,11 +12,13 @@ import {
   BitwardenAuthTokenChart,
   BitwardenOrgSecret,
 } from "./bitwarden";
+import { PostgresBackup } from "../lib/postgres-backup";
 
 interface AuthentikChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
-  readonly postgresHost: string;
+  readonly storageClassName: string;
+  readonly resticRepository: string;
 }
 
 export class AuthentikChart extends BitwardenAuthTokenChart {
@@ -63,14 +65,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       },
     });
 
-    // Authentik Helm chart
-    const postgresEnv = [
-      { name: "AUTHENTIK_POSTGRESQL__HOST", value: props.postgresHost },
-      { name: "AUTHENTIK_POSTGRESQL__PORT", value: "5432" },
-      { name: "AUTHENTIK_POSTGRESQL__NAME", value: "authentik" },
-      { name: "AUTHENTIK_POSTGRESQL__USER", value: "authentik" },
-    ];
-
+    // Authentik Helm chart with embedded PostgreSQL
     new Helm(this, "authentik", {
       chart: "authentik",
       repo: "https://charts.goauthentik.io",
@@ -92,18 +87,51 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
             },
           ],
         },
-        postgresql: { enabled: false },
-        redis: { enabled: true },
+        postgresql: {
+          enabled: true,
+          auth: {
+            existingSecret: dbSecretName,
+            secretKeys: {
+              adminPasswordKey: "password",
+              userPasswordKey: "password",
+            },
+          },
+          primary: {
+            persistence: {
+              enabled: true,
+              storageClass: props.storageClassName,
+              size: "10Gi",
+            },
+            resources: {
+              requests: { memory: "256Mi", cpu: "250m" },
+              limits: { memory: "1Gi", cpu: "1000m" },
+            },
+          },
+        },
         server: {
           replicas: 3,
           ingress: { enabled: false },
-          env: postgresEnv,
         },
         worker: {
           replicas: 2,
-          env: postgresEnv,
         },
       },
+    });
+
+    // PostgreSQL backup and restore
+    new PostgresBackup(this, "postgres-backup", {
+      namespace,
+      name: "authentik-db",
+      postgresHost: "authentik-postgresql",
+      postgresUser: "authentik",
+      postgresDatabase: "authentik",
+      postgresPasswordSecretName: dbSecretName,
+      postgresPasswordSecretKey: "password",
+      resticRepository: props.resticRepository,
+      // Same restic credentials as central postgres
+      resticAccessKeyIdBwSecretId: "cddf0c0b-52b1-4ca7-bdb5-b3e000f29516",
+      resticAccessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
+      resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
     });
 
     // TLS Certificate

@@ -9,8 +9,10 @@ download:
 headlamp-token:
     @kubectl get secret headlamp-admin-token -n headlamp -o jsonpath='{.data.token}' | base64 -d && echo
 
-apply:
+synth:
     @npm run synth
+
+apply: synth
     @kubectl apply -f dist/
 
 hooks:

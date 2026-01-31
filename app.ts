@@ -55,7 +55,9 @@ new LocalPathProvisionerChart(app, "local-path-provisioner", {
     { node: "vaio", paths: ["/var/lib/rancher/k3s/storage"] },
   ],
 });
-new CrowdSecChart(app, "crowdsec");
+new CrowdSecChart(app, "crowdsec", {
+  blockedCountries: ["CN", "RU", "KP", "IR", "BY", "IL", "IN", "PK", "US"],
+});
 new HAProxyChart(app, "haproxy", {
   traefikServiceHost: "traefik.traefik.svc.cluster.local",
   nodeAffinity: requiredNodeAffinity(hostnameNotIn("vaio", "ridge")),
@@ -80,7 +82,7 @@ new HomepageChart(app, "homepage", {
   hosts: [homeDomain],
   clusterIssuerName,
 });
-const postgresChart = new PostgresChart(app, "postgres", {
+new PostgresChart(app, "postgres", {
   hosts: [homeSubdomain("pgadmin")],
   clusterIssuerName,
   resticRepository: psqlResticRepository,
@@ -89,7 +91,8 @@ const postgresChart = new PostgresChart(app, "postgres", {
 new AuthentikChart(app, "authentik", {
   hosts: allSubdomains("auth"),
   clusterIssuerName,
-  postgresHost: postgresChart.serviceHost,
+  storageClassName,
+  resticRepository: psqlResticRepository,
 });
 new PlankaChart(app, "planka", {
   hosts: allSubdomains("planka"),

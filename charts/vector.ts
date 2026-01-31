@@ -212,12 +212,12 @@ export class VectorChart extends BitwardenAuthTokenChart {
               targets: [
                 {
                   refId: "A",
-                  expr: 'max by (name) (brew_temperature{job="vector",name!~"test.*"})',
+                  expr: 'max by (name) (last_over_time(brew_temperature{job="vector",name!~"test.*"}[75m]))',
                   legendFormat: "{{name}}",
                   datasource: { type: "prometheus", uid: "prometheus" },
                 },
               ],
-              options: { colorMode: "value", graphMode: "area" },
+              options: { colorMode: "value", graphMode: "none" },
               fieldConfig: { defaults: { unit: "celsius" } },
             },
             {
@@ -228,12 +228,12 @@ export class VectorChart extends BitwardenAuthTokenChart {
               targets: [
                 {
                   refId: "A",
-                  expr: 'max by (name) (brew_gravity{job="vector",name!~"test.*"})',
+                  expr: 'max by (name) (last_over_time(brew_gravity{job="vector",name!~"test.*"}[75m]))',
                   legendFormat: "{{name}}",
                   datasource: { type: "prometheus", uid: "prometheus" },
                 },
               ],
-              options: { colorMode: "value", graphMode: "area" },
+              options: { colorMode: "value", graphMode: "none" },
               fieldConfig: { defaults: { decimals: 3 } },
             },
             {
@@ -244,7 +244,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
               targets: [
                 {
                   refId: "A",
-                  expr: 'max by (name) (last_over_time(brew_temperature{job="vector",name!~"test.*"}[5m]))',
+                  expr: 'max by (name) (last_over_time(brew_temperature{job="vector",name!~"test.*"}[75m]))',
                   legendFormat: "{{name}}",
                   datasource: { type: "prometheus", uid: "prometheus" },
                 },
@@ -270,7 +270,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
               targets: [
                 {
                   refId: "A",
-                  expr: 'max by (name) (last_over_time(brew_gravity{job="vector",name!~"test.*"}[5m]))',
+                  expr: 'max by (name) (last_over_time(brew_gravity{job="vector",name!~"test.*"}[75m]))',
                   legendFormat: "{{name}}",
                   datasource: { type: "prometheus", uid: "prometheus" },
                 },
