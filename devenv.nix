@@ -1,12 +1,15 @@
 {
   pkgs,
+  lib,
   ...
 }:
 {
   dotenv.enable = true;
 
   # Disable helm plugins to avoid warnings polluting cdk8s helm template output
-  env.HELM_PLUGINS = "";
+  env = {
+    HELM_PLUGINS = "";
+  };
 
   languages.javascript = {
     enable = true;
