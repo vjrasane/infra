@@ -135,7 +135,6 @@ new VectorChart(app, "vector", {
 new ImmichChart(app, "immich", {
   hosts: allSubdomains("immich"),
   clusterIssuerName,
-  nodeName: "oracle",
   resticRepository: psqlResticRepository,
 });
 

@@ -1,19 +1,19 @@
+import { Size } from "cdk8s";
 import {
   EnvValue,
   LabeledNode,
-  Node,
-  NodeLabelQuery,
   Protocol,
   Service,
   StatefulSet,
   Volume,
 } from "cdk8s-plus-28";
 import { Construct } from "constructs";
+import { LocalPathPvc } from "./local-path";
 
 interface PostgresProps {
   namespace: string;
   name: string;
-  volume: Volume;
+  volume?: Volume;
   dbName: EnvValue;
   dbUser: EnvValue;
   dbPassword: EnvValue;
@@ -25,6 +25,14 @@ export class Postgres extends Construct {
     super(scope, id);
 
     const { name, namespace, volume, dbName, dbUser, dbPassword, node } = props;
+
+    const dbVolume =
+      volume ??
+      new LocalPathPvc(this, id + "-data", {
+        namespace,
+        name: name + "-data",
+      }).toVolume();
+
     const dbPodLabels = { "app.kubernetes.io/name": name };
     const dbService = new Service(this, name, {
       metadata: { name: name, namespace, labels: dbPodLabels },
@@ -40,7 +48,7 @@ export class Postgres extends Construct {
       service: dbService,
       podMetadata: { labels: dbPodLabels },
       replicas: 1,
-      volumes: [volume],
+      volumes: [dbVolume],
       containers: [
         {
           name: "postgres",
@@ -49,14 +57,12 @@ export class Postgres extends Construct {
           envVariables: {
             POSTGRES_USER: dbUser,
             POSTGRES_PASSWORD: dbPassword,
-            //   EnvValue.fromSecretValue({
-            //   secret: { name: credentialsSecretName } as any,
-            //   key: "password",
-            // }),
             POSTGRES_DB: dbName,
             PGDATA: EnvValue.fromValue("/var/lib/postgresql/data/pgdata"),
           },
-          volumeMounts: [{ path: "/var/lib/postgresql/data", volume }],
+          volumeMounts: [
+            { path: "/var/lib/postgresql/data", volume: dbVolume },
+          ],
           securityContext: {
             ensureNonRoot: false,
             readOnlyRootFilesystem: false,

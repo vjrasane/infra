@@ -10,7 +10,6 @@ import { Construct } from "constructs";
 interface LocalPathPvcProps extends Partial<PersistentVolumeClaimProps> {
   namespace: string;
   name: string;
-  size: Size;
 }
 
 export const LOCAL_PATH_STORAGE_CLASS_NAME = "local-path";
@@ -23,7 +22,7 @@ export class LocalPathPvc extends Construct {
   constructor(scope: Construct, id: string, props: LocalPathPvcProps) {
     super(scope, id);
 
-    const { name, namespace, size, ...extra } = props;
+    const { name, namespace, ...extra } = props;
 
     this.id = id;
     this.name = name;
@@ -32,7 +31,7 @@ export class LocalPathPvc extends Construct {
       metadata: { name, namespace },
       storageClassName: LOCAL_PATH_STORAGE_CLASS_NAME,
       accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
-      storage: size,
+      storage: Size.gibibytes(10),
       ...extra,
     });
   }

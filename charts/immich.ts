@@ -7,8 +7,8 @@ import {
   Volume,
   PersistentVolumeClaim,
   PersistentVolumeAccessMode,
-  Node,
-  NodeLabelQuery,
+  Protocol,
+  LabeledNode,
 } from "cdk8s-plus-28";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 import { getPublicSecurityMiddlewares } from "../lib/hosts";
@@ -26,8 +26,6 @@ import { LocalPathPvc } from "../lib/local-path";
 interface ImmichChartProps extends ChartProps {
   readonly hosts: string[];
   readonly clusterIssuerName: string;
-  readonly storageClassName: string;
-  readonly nodeName: string;
   readonly libraryStorageSize?: Size;
   readonly resticRepository: string;
 }
@@ -57,24 +55,19 @@ export class ImmichChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const targetNode = Node.labeled(
-      NodeLabelQuery.is("kubernetes.io/hostname", props.nodeName),
-    );
-
     const dbName = "immich";
     const dbUser = "immich";
     const dbServiceName = "immich-postgres";
 
-    const dbVolume = new LocalPathPvc(this, "immich-postgres-data", {
-      namespace,
-      name: "immich-postgres-data",
-      size: Size.gibibytes(10),
-    }).toVolume();
-
     new Postgres(this, "immich-postgres", {
       namespace,
       name: "immich-postgres",
-      volume: dbVolume,
+      dbUser: EnvValue.fromValue(dbUser),
+      dbName: EnvValue.fromValue(dbName),
+      dbPassword: EnvValue.fromSecretValue({
+        secret: { name: credentialsSecretName } as any,
+        key: "password",
+      }),
     });
 
     const redisServiceName = "immich-redis";
@@ -95,7 +88,6 @@ export class ImmichChart extends BitwardenAuthTokenChart {
         },
       ],
     });
-    redisDeployment.scheduling.attract(targetNode);
     const redisService = redisDeployment.exposeViaService({
       name: redisServiceName,
     });
@@ -103,17 +95,10 @@ export class ImmichChart extends BitwardenAuthTokenChart {
     const mlServiceName = "immich-machine-learning";
     const mlPodLabels = { "app.kubernetes.io/name": "immich-machine-learning" };
 
-    const mlCachePvc = new PersistentVolumeClaim(this, "ml-cache-pvc", {
-      metadata: { name: "immich-ml-cache", namespace },
-      storageClassName: props.storageClassName,
-      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
-      storage: Size.gibibytes(10),
-    });
-    const mlCacheVolume = Volume.fromPersistentVolumeClaim(
-      this,
-      "ml-cache-volume",
-      mlCachePvc,
-    );
+    const mlCacheVolume = new LocalPathPvc(this, "ml-cache-pvc", {
+      namespace,
+      name: "immich-ml-cache",
+    }).toVolume();
 
     const mlDeployment = new Deployment(this, "machine-learning", {
       metadata: {
@@ -142,20 +127,13 @@ export class ImmichChart extends BitwardenAuthTokenChart {
         },
       ],
     });
-    mlDeployment.scheduling.attract(targetNode);
     const mlService = mlDeployment.exposeViaService({ name: mlServiceName });
 
-    const libraryPvc = new PersistentVolumeClaim(this, "library-pvc", {
-      metadata: { name: "immich-library", namespace },
-      storageClassName: props.storageClassName,
-      accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
-      storage: props.libraryStorageSize ?? Size.gibibytes(100),
-    });
-    const libraryVolume = Volume.fromPersistentVolumeClaim(
-      this,
-      "library-volume",
-      libraryPvc,
-    );
+    const libraryVolume = new LocalPathPvc(this, "library-pvc", {
+      namespace,
+      name: "immich-library",
+      storage: Size.tebibytes(1),
+    }).toVolume();
 
     const serverPodLabels = { "app.kubernetes.io/name": "immich-server" };
     const serverDeployment = new Deployment(this, "server", {
@@ -191,7 +169,6 @@ export class ImmichChart extends BitwardenAuthTokenChart {
         },
       ],
     });
-    serverDeployment.scheduling.attract(targetNode);
     const serverService = serverDeployment.exposeViaService();
 
     const certSecretName = "immich-tls";
