@@ -60,8 +60,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     const dataVolume = new LocalPathPvc(this, "data-pvc", {
       name: "postgres-data",
       namespace,
-      size: Size.gibibytes(10),
-    }).toVolume("data-volume");
+    }).toVolume(this, "data-pv", "data-volume");
 
     // Headless service for StatefulSet (fixed name)
     const serviceName = "postgres";

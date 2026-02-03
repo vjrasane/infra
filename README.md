@@ -428,3 +428,63 @@ kubectl apply -k k8s/kube-system/
 ```
 
 **Access**: `http://192.168.1.200/dashboard/`
+
+## Node Management
+
+### Remove a Control Plane Node and Convert to Worker
+
+1. **Drain the node** (evict workloads):
+   ```bash
+   kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
+   ```
+
+2. **On the node being removed** - stop and uninstall k3s server:
+   ```bash
+   sudo systemctl stop k3s
+   sudo /usr/local/bin/k3s-uninstall.sh
+   ```
+
+3. **Delete the node from cluster**:
+   ```bash
+   kubectl delete node <node-name>
+   ```
+
+4. **Rejoin as worker** using ansible:
+   ```bash
+   ansible-playbook -i ansible/inventory.yml ansible/playbook.yml --limit <node-name> -t k3s_agents
+   ```
+
+   Or manually:
+   ```bash
+   # Get token from an existing control plane node
+   sudo cat /var/lib/rancher/k3s/server/node-token
+
+   # On the node, install as agent
+   curl -sfL https://get.k3s.io | K3S_TOKEN=<token> sh -s - agent \
+     --server https://<control-plane-ip>:6443 \
+     --node-ip <tailscale-ip> \
+     --flannel-iface tailscale0 \
+     --node-label karkki.org/cloud-provider=aws
+   ```
+
+5. **Label the node** (if not set during install):
+   ```bash
+   kubectl label node <node-name> karkki.org/cloud-provider=aws
+   ```
+
+### Remove a Worker Node
+
+1. **Drain the node**:
+   ```bash
+   kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
+   ```
+
+2. **Delete from cluster**:
+   ```bash
+   kubectl delete node <node-name>
+   ```
+
+3. **On the node** - uninstall k3s agent:
+   ```bash
+   sudo /usr/local/bin/k3s-agent-uninstall.sh
+   ```

@@ -2,27 +2,16 @@ import { Construct } from "constructs";
 import { Cron } from "cdk8s";
 import { CronJob, Env, EnvValue, Secret, Volume } from "cdk8s-plus-28";
 import { ResticCredentials } from "./restic";
+import { PostgresCredentials } from "./postgres";
 
 interface PostgresBackupProps {
   readonly namespace: string;
-  /** Name prefix for the backup/restore cronjobs */
-  readonly name: string;
+  readonly name?: string;
   /** PostgreSQL service hostname */
-  readonly postgresHost: string;
-  /** PostgreSQL username */
-  readonly postgresUser: string;
-  /** PostgreSQL database name (for restore target) */
-  readonly postgresDatabase: string;
-  /** Secret name containing the PostgreSQL password */
-  readonly postgresPasswordSecretName: string;
-  /** Key in the secret containing the password */
-  readonly postgresPasswordSecretKey: string;
-  /** Restic repository URL */
-  readonly resticRepository: string;
-  /** Bitwarden secret IDs for restic credentials */
-  readonly resticAccessKeyIdBwSecretId: string;
-  readonly resticAccessKeySecretBwSecretId: string;
-  readonly resticPasswordBwSecretId: string;
+  readonly postgresHost: EnvValue;
+
+  readonly postgresCredentials: PostgresCredentials;
+
   /** Backup schedule (default: 2 AM daily) */
   readonly backupSchedule?: Cron;
   /** Retention policy */
@@ -31,38 +20,50 @@ interface PostgresBackupProps {
   readonly keepMonthly?: number;
 }
 
+const POSTGRES_BACKUP_RESTIC_REPO =
+  "s3:485029190166e70f3358ab9fc87c6b4f.r2.cloudflarestorage.com/karkkinet-psql-backups";
+
 export class PostgresBackup extends Construct {
   constructor(scope: Construct, id: string, props: PostgresBackupProps) {
     super(scope, id);
 
     const {
       namespace,
-      name,
       postgresHost,
-      postgresUser,
-      postgresDatabase,
-      postgresPasswordSecretName,
-      postgresPasswordSecretKey,
-      resticRepository,
+      postgresCredentials,
       backupSchedule = Cron.schedule({ minute: "0", hour: "2" }),
       keepDaily = 7,
       keepWeekly = 4,
       keepMonthly = 6,
     } = props;
 
+    const name = props.name ?? namespace + "-postgres-backup";
+
     const resticCredentialsName = `${name}-restic-credentials`; // pragma: allowlist secret
     const credentials = new ResticCredentials(this, "restic-credentials", {
       namespace,
       name: resticCredentialsName,
-      accessKeyIdBwSecretId: props.resticAccessKeyIdBwSecretId,
-      accessKeySecretBwSecretId: props.resticAccessKeySecretBwSecretId,
-      resticPasswordBwSecretId: props.resticPasswordBwSecretId,
+      accessKeyIdBwSecretId: "cddf0c0b-52b1-4ca7-bdb5-b3e000f29516",
+      accessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
+      resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
     });
 
     const hostName = postgresHost;
-    const backupVolume = Volume.fromEmptyDir(this, "backup-volume", "backup-data");
-    const pgSecret = Secret.fromSecretName(this, "pg-secret", postgresPasswordSecretName);
-    const resticSecret = Secret.fromSecretName(this, "restic-secret", credentials.secretName);
+    const backupVolume = Volume.fromEmptyDir(
+      this,
+      "backup-volume",
+      "backup-data",
+    );
+    // const pgSecret = Secret.fromSecretName(
+    //   this,
+    //   "pg-secret",
+    //   postgresPasswordSecretName,
+    // );
+    const resticSecret = Secret.fromSecretName(
+      this,
+      "restic-secret",
+      credentials.secretName,
+    );
 
     // Daily backup CronJob
     // Init container: pg_dump to emptyDir
@@ -82,15 +83,12 @@ export class PostgresBackup extends Construct {
             `set -e
 DATE=$(date +%Y-%m-%d)
 echo "Starting pg_dump for $DATE..."
-PGPASSWORD=$PGPASSWORD pg_dump -h ${postgresHost} -U ${postgresUser} -d ${postgresDatabase} > /backups/daily-$DATE.sql
+PGPASSWORD=$PGPASSWORD pg_dump -h ${postgresHost.value} -U ${postgresCredentials.user.value} -d ${postgresCredentials.database.value} > /backups/daily-$DATE.sql
 echo "Backup complete:"
 ls -la /backups/`,
           ],
           envVariables: {
-            PGPASSWORD: EnvValue.fromSecretValue({
-              secret: pgSecret,
-              key: postgresPasswordSecretKey,
-            }),
+            PGPASSWORD: postgresCredentials.password,
           },
           volumeMounts: [{ path: "/backups", volume: backupVolume }],
           securityContext: { ensureNonRoot: false },
@@ -113,7 +111,7 @@ echo "Done. Current snapshots:"
 restic snapshots`,
           ],
           envVariables: {
-            RESTIC_REPOSITORY: EnvValue.fromValue(resticRepository),
+            RESTIC_REPOSITORY: EnvValue.fromValue(POSTGRES_BACKUP_RESTIC_REPO),
           },
           envFrom: [Env.fromSecret(resticSecret)],
           volumeMounts: [{ path: "/backups", volume: backupVolume }],
@@ -127,7 +125,11 @@ restic snapshots`,
 
     // Suspended restore job - trigger manually with:
     // kubectl create job --from=cronjob/<name>-restore -n <namespace> <name>-restore-manual
-    const restoreVolume = Volume.fromEmptyDir(this, "restore-volume", "restore-data");
+    const restoreVolume = Volume.fromEmptyDir(
+      this,
+      "restore-volume",
+      "restore-data",
+    );
     new CronJob(this, "restore", {
       metadata: { name: `${name}-restore`, namespace },
       schedule: Cron.schedule({ minute: "0", hour: "0", day: "1", month: "1" }),
@@ -148,7 +150,7 @@ echo "Restore complete. Available backups:"
 ls -la /restore/backups/`,
           ],
           envVariables: {
-            RESTIC_REPOSITORY: EnvValue.fromValue(resticRepository),
+            RESTIC_REPOSITORY: EnvValue.fromValue(POSTGRES_BACKUP_RESTIC_REPO),
           },
           envFrom: [Env.fromSecret(resticSecret)],
           volumeMounts: [{ path: "/restore", volume: restoreVolume }],
@@ -171,15 +173,12 @@ if [ -z "$LATEST" ]; then
   echo "No SQL backup found!"
   exit 1
 fi
-echo "Importing $LATEST into ${postgresDatabase}..."
-PGPASSWORD=$PGPASSWORD psql -h ${postgresHost} -U ${postgresUser} -d ${postgresDatabase} -f "$LATEST"
+echo "Importing $LATEST into ${postgresCredentials.database.value}..."
+PGPASSWORD=$PGPASSWORD psql -h ${postgresHost.value} -U ${postgresCredentials.user.value} -d ${postgresCredentials.database.value} -f "$LATEST"
 echo "Import complete."`,
           ],
           envVariables: {
-            PGPASSWORD: EnvValue.fromSecretValue({
-              secret: pgSecret,
-              key: postgresPasswordSecretKey,
-            }),
+            PGPASSWORD: postgresCredentials.password,
           },
           volumeMounts: [{ path: "/restore", volume: restoreVolume }],
           securityContext: {

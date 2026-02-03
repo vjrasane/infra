@@ -1,6 +1,7 @@
+import { ChartProps } from "cdk8s";
+import { EnvValue, Namespace } from "cdk8s-plus-28";
 import { Construct } from "constructs";
-import { ChartProps, Helm } from "cdk8s";
-import { Namespace } from "cdk8s-plus-28";
+import { Authentik } from "../imports/authentik";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
@@ -8,9 +9,10 @@ import {
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
-import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
-import { PostgresBackup } from "../lib/postgres-backup";
 import { LOCAL_PATH_STORAGE_CLASS_NAME } from "../lib/local-path";
+import { PostgresCredentials } from "../lib/postgres";
+import { PostgresBackup } from "../lib/postgres-backup";
+import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface AuthentikChartProps extends ChartProps {
   readonly hosts: string[];
@@ -60,25 +62,14 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const dbSecretName = "authentik-db"; // pragma: allowlist secret
-    new BitwardenOrgSecret(this, "db", {
-      metadata: { name: dbSecretName, namespace },
-      spec: {
-        secretName: dbSecretName,
-        map: [
-          {
-            bwSecretId: "395b1143-3eea-4071-b3f0-b3bb01819829",
-            secretKeyName: "password",
-          },
-        ],
-      },
+    const dbCredentials = new PostgresCredentials(this, "db-credentials", {
+      namespace,
+      passwordSecretName: "authentik-db",
+      passwordSecretId: "395b1143-3eea-4071-b3f0-b3bb01819829",
     });
 
     // Authentik Helm chart with embedded PostgreSQL
-    new Helm(this, "authentik", {
-      chart: "authentik",
-      repo: "https://charts.goauthentik.io",
-      version: "2025.10.3",
+    new Authentik(this, "authentik", {
       namespace,
       releaseName: "authentik",
       values: {
@@ -90,19 +81,17 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
           env: [
             {
               name: "AUTHENTIK_POSTGRESQL__PASSWORD",
-              valueFrom: {
-                secretKeyRef: { name: dbSecretName, key: "password" },
-              },
+              valueFrom: dbCredentials.password.valueFrom,
             },
           ],
         },
         postgresql: {
           enabled: true,
           auth: {
-            existingSecret: dbSecretName,
+            existingSecret: dbCredentials.passwordSecretName,
             secretKeys: {
-              adminPasswordKey: "password",
-              userPasswordKey: "password",
+              adminPasswordKey: dbCredentials.passwordSecretKey,
+              userPasswordKey: dbCredentials.passwordSecretKey,
             },
           },
           primary: {
@@ -131,16 +120,8 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
     new PostgresBackup(this, "postgres-backup", {
       namespace,
       name: "authentik-db",
-      postgresHost: "authentik-postgresql",
-      postgresUser: "authentik",
-      postgresDatabase: "authentik",
-      postgresPasswordSecretName: dbSecretName,
-      postgresPasswordSecretKey: "password",
-      resticRepository: props.resticRepository,
-      // Same restic credentials as central postgres
-      resticAccessKeyIdBwSecretId: "cddf0c0b-52b1-4ca7-bdb5-b3e000f29516",
-      resticAccessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
-      resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
+      postgresHost: EnvValue.fromValue("authentik-postgresql"),
+      postgresCredentials: dbCredentials,
     });
 
     // TLS Certificate

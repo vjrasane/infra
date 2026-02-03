@@ -40,3 +40,7 @@ export function homeSubdomain(subdomain: string): string {
 export function cloudSubdomain(subdomain: string): string {
   return `${subdomain}.${cloudDomain}`;
 }
+
+export function publicSubdomains(subdomain: string): string[] {
+  return [`${subdomain}.${cloudDomain}`, `${subdomain}.${baseDomain}`];
+}

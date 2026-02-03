@@ -1,5 +1,5 @@
 import { Construct } from "constructs";
-import { Chart, ChartProps, Include } from "cdk8s";
+import { ChartProps, Include } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
 import { Kubeprometheusstack } from "../imports/kube-prometheus-stack";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
@@ -11,10 +11,12 @@ import {
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
+import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface KubePrometheusStackChartProps extends ChartProps {
   readonly grafanaHosts: string[];
   readonly grafanaRootUrl: string;
+  readonly authentikUrl: string;
   readonly prometheusHosts: string[];
   readonly alertmanagerHosts: string[];
   readonly clusterIssuerName: string;
@@ -22,19 +24,36 @@ interface KubePrometheusStackChartProps extends ChartProps {
   readonly prometheusNodeAffinity?: NodeAffinity;
 }
 
-export class KubePrometheusStackChart extends Chart {
+export class KubePrometheusStackChart extends BitwardenAuthTokenChart {
   constructor(
     scope: Construct,
     id: string,
     props: KubePrometheusStackChartProps,
   ) {
-    super(scope, id, { ...props });
-
     const namespace = "monitoring";
+    super(scope, id, { ...props, namespace });
 
     new Namespace(this, "namespace", {
       metadata: {
         name: namespace,
+      },
+    });
+
+    const grafanaOauthSecretName = "grafana-oauth";
+    new BitwardenOrgSecret(this, "grafana-oauth", {
+      metadata: { name: grafanaOauthSecretName, namespace },
+      spec: {
+        secretName: grafanaOauthSecretName,
+        map: [
+          {
+            bwSecretId: "1e5dfbd5-de25-493d-af39-b3e60077c30b",
+            secretKeyName: "GF_AUTH_GENERIC_OAUTH_CLIENT_ID",
+          },
+          {
+            bwSecretId: "a6cc4141-6d8d-4fc2-a510-b3e60077d988",
+            secretKeyName: "GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET",
+          },
+        ],
       },
     });
 
@@ -67,9 +86,25 @@ export class KubePrometheusStackChart extends Chart {
           initChownData: {
             enabled: false,
           },
+          envFromSecrets: [{ name: grafanaOauthSecretName }],
           "grafana.ini": {
             server: {
               root_url: props.grafanaRootUrl,
+            },
+            auth: {
+              signout_redirect_url: `${props.authentikUrl}/application/o/grafana/end-session/`,
+              disable_login_form: true,
+              oauth_auto_login: true,
+            },
+            "auth.generic_oauth": {
+              name: "authentik",
+              enabled: true,
+              scopes: "openid profile email",
+              auth_url: `${props.authentikUrl}/application/o/authorize/`,
+              token_url: `${props.authentikUrl}/application/o/token/`,
+              api_url: `${props.authentikUrl}/application/o/userinfo/`,
+              role_attribute_path:
+                "contains(groups, 'Grafana Admins') && 'Admin' || contains(groups, 'Grafana Editors') && 'Editor' || 'Viewer'",
             },
           },
           sidecar: {

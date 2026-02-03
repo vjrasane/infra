@@ -8,10 +8,7 @@
         user: "{{ ansible_user }}"
         key: "{{ lookup('file', item) }}"
         state: present
-      loop:
-        - ~/.ssh/id_ed25519.pub
-        - ~/.ssh/id_rsa.pub
-      ignore_errors: yes
+      loop: "{{ lookup('fileglob', '~/.ssh/*.pub', wantlist=True) }}"
 
     - name: Disable password authentication
       lineinfile:
@@ -50,8 +47,15 @@
       shell: curl -fsSL https://tailscale.com/install.sh | sh
       when: tailscale_installed.rc != 0
 
+    - name: Check Tailscale status
+      command: tailscale status
+      register: tailscale_status
+      failed_when: false
+      changed_when: false
+
     - name: Join Tailnet
       shell: tailscale up --auth-key={{ tailscale_auth_key }}
+      when: tailscale_status.rc != 0
 
     - name: Get Tailscale IP
       shell: tailscale ip -4
@@ -177,7 +181,8 @@
         curl -sfL https://get.k3s.io | K3S_TOKEN={{ k3s_token }} sh -s - agent \
           --server https://{{ k3s_init_tailscale_ip }}:6443 \
           --node-ip {{ tailscale_ip }} \
-          --flannel-iface tailscale0
+          --flannel-iface tailscale0 \
+          {{ node_labels | default([]) | map('regex_replace', '^', '--node-label ') | join(' ') }}
       when: not k3s_installed.stat.exists
 
 - name: Configure firewall for metrics ports

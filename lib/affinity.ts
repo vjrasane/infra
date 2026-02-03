@@ -1,3 +1,4 @@
+import { LabeledNode, NodeLabelQuery } from "cdk8s-plus-28";
 import {
   NodeAffinity,
   NodeSelectorRequirement,
@@ -66,3 +67,11 @@ export function preferredNodeAffinity(
     ],
   };
 }
+
+export const cloudNode = new LabeledNode([
+  NodeLabelQuery.exists("karkki.org/cloud-provider"),
+]);
+
+export const haproxyNode = new LabeledNode([
+  NodeLabelQuery.exists("karkki.org/haproxy"),
+]);

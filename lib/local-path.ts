@@ -9,25 +9,16 @@ import { Construct } from "constructs";
 
 interface LocalPathPvcProps extends Partial<PersistentVolumeClaimProps> {
   namespace: string;
-  name: string;
+  name?: string;
 }
 
 export const LOCAL_PATH_STORAGE_CLASS_NAME = "local-path";
 
-export class LocalPathPvc extends Construct {
-  private id: string;
-  private name: string;
-  private pvc: PersistentVolumeClaim;
-
+export class LocalPathPvc extends PersistentVolumeClaim {
   constructor(scope: Construct, id: string, props: LocalPathPvcProps) {
-    super(scope, id);
-
-    const { name, namespace, ...extra } = props;
-
-    this.id = id;
-    this.name = name;
-
-    this.pvc = new PersistentVolumeClaim(this, id + "-pvc", {
+    const { namespace, ...extra } = props;
+    const name = props.name ?? namespace + "-local-path-pvc";
+    super(scope, id, {
       metadata: { name, namespace },
       storageClassName: LOCAL_PATH_STORAGE_CLASS_NAME,
       accessModes: [PersistentVolumeAccessMode.READ_WRITE_ONCE],
@@ -36,9 +27,9 @@ export class LocalPathPvc extends Construct {
     });
   }
 
-  toVolume(name?: string) {
-    return Volume.fromPersistentVolumeClaim(this, this.id + "-pv", this.pvc, {
+  toVolume = (scope: Construct, id: string, name?: string) => {
+    return Volume.fromPersistentVolumeClaim(scope, id, this, {
       name: name ?? this.name,
     });
-  }
+  };
 }

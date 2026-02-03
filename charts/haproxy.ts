@@ -1,21 +1,29 @@
 import { Construct } from "constructs";
 import { Chart, ChartProps } from "cdk8s";
-import { Namespace, ConfigMap } from "cdk8s-plus-28";
 import {
-  KubeDaemonSet,
-  NodeAffinity,
-} from "cdk8s-plus-28/lib/imports/k8s";
+  Namespace,
+  ConfigMap,
+  DaemonSet,
+  DnsPolicy,
+  Protocol,
+  Volume,
+  Capability,
+  LabeledNode,
+} from "cdk8s-plus-28";
 
 interface HAProxyChartProps extends ChartProps {
   readonly traefikServiceHost: string;
   readonly traefikHttpPort?: number;
   readonly traefikHttpsPort?: number;
-  readonly nodeAffinity?: NodeAffinity;
+
+  readonly nodes?: LabeledNode[];
 }
 
 export class HAProxyChart extends Chart {
   constructor(scope: Construct, id: string, props: HAProxyChartProps) {
     super(scope, id, { ...props });
+
+    const { nodes = [] } = props;
 
     const namespace = "haproxy";
     const httpPort = props.traefikHttpPort ?? 80;
@@ -25,9 +33,8 @@ export class HAProxyChart extends Chart {
       metadata: { name: namespace },
     });
 
-    const configMapName = "haproxy-config";
-    new ConfigMap(this, "config", {
-      metadata: { name: configMapName, namespace },
+    const configMap = new ConfigMap(this, "config", {
+      metadata: { name: "haproxy-config", namespace },
       data: {
         "haproxy.cfg": `
 global
@@ -58,55 +65,50 @@ backend traefik_https
       },
     });
 
-    const podLabels = { "app.kubernetes.io/name": "haproxy" };
+    const configVolume = Volume.fromConfigMap(this, "config-volume", configMap);
 
-    new KubeDaemonSet(this, "haproxy", {
-      metadata: { name: "haproxy", namespace, labels: podLabels },
-      spec: {
-        selector: { matchLabels: podLabels },
-        template: {
-          metadata: { labels: podLabels },
-          spec: {
-            hostNetwork: true,
-            dnsPolicy: "ClusterFirstWithHostNet",
-            affinity: props.nodeAffinity
-              ? { nodeAffinity: props.nodeAffinity }
-              : undefined,
-            containers: [
-              {
-                name: "haproxy",
-                image: "haproxy:2.9-alpine",
-                args: ["-f", "/usr/local/etc/haproxy/haproxy.cfg"],
-                ports: [
-                  { containerPort: 80, protocol: "TCP", name: "http" },
-                  { containerPort: 443, protocol: "TCP", name: "https" },
-                ],
-                volumeMounts: [
-                  {
-                    name: "config",
-                    mountPath: "/usr/local/etc/haproxy",
-                    readOnly: true,
-                  },
-                ],
-                securityContext: {
-                  capabilities: {
-                    add: ["NET_BIND_SERVICE"],
-                    drop: ["ALL"],
-                  },
-                  runAsUser: 0,
-                  runAsGroup: 0,
-                },
-              },
-            ],
-            volumes: [
-              {
-                name: "config",
-                configMap: { name: configMapName },
-              },
-            ],
+    const daemonSet = new DaemonSet(this, "haproxy", {
+      metadata: { name: "haproxy", namespace },
+      select: true,
+      hostNetwork: true,
+      dns: {
+        policy: DnsPolicy.CLUSTER_FIRST_WITH_HOST_NET,
+      },
+      securityContext: {
+        ensureNonRoot: false,
+        user: 0,
+        group: 0,
+      },
+      containers: [
+        {
+          name: "haproxy",
+          image: "haproxy:2.9-alpine",
+          args: ["-f", "/usr/local/etc/haproxy/haproxy.cfg"],
+          ports: [
+            { number: 80, protocol: Protocol.TCP, name: "http" },
+            { number: 443, protocol: Protocol.TCP, name: "https" },
+          ],
+          volumeMounts: [
+            {
+              volume: configVolume,
+              path: "/usr/local/etc/haproxy",
+              readOnly: true,
+            },
+          ],
+          securityContext: {
+            ensureNonRoot: false,
+            capabilities: {
+              add: [Capability.NET_BIND_SERVICE],
+              drop: [Capability.ALL],
+            },
           },
         },
-      },
+      ],
+      volumes: [configVolume],
     });
+
+    for (let node of nodes) {
+      daemonSet.scheduling.attract(node);
+    }
   }
 }

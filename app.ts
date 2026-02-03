@@ -1,5 +1,7 @@
 import { App, Size } from "cdk8s";
 import {
+  cloudNode,
+  haproxyNode,
   hostnameIn,
   hostnameNotIn,
   requiredNodeAffinity,
@@ -59,7 +61,7 @@ new CrowdSecChart(app, "crowdsec", {
 });
 new HAProxyChart(app, "haproxy", {
   traefikServiceHost: "traefik.traefik.svc.cluster.local",
-  nodeAffinity: requiredNodeAffinity(hostnameNotIn("vaio", "ridge")),
+  nodes: [cloudNode, haproxyNode],
 });
 new TraefikChart(app, "traefik", {
   crowdsecBouncerEnabled: true,
@@ -117,6 +119,7 @@ new JellyfinChart(app, "jellyfin", {
 new KubePrometheusStackChart(app, "kube-prometheus-stack", {
   grafanaHosts: allSubdomains("grafana"),
   grafanaRootUrl: `https://${cloudSubdomain("grafana")}`,
+  authentikUrl: `https://${cloudSubdomain("auth")}`,
   prometheusHosts: [homeSubdomain("prometheus")],
   alertmanagerHosts: [homeSubdomain("alertmanager")],
   clusterIssuerName,

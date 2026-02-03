@@ -1,16 +1,7 @@
 import { Construct } from "constructs";
 import { ChartProps, Size } from "cdk8s";
-import {
-  Namespace,
-  Deployment,
-  EnvValue,
-  Volume,
-  PersistentVolumeClaim,
-  PersistentVolumeAccessMode,
-  Protocol,
-  LabeledNode,
-} from "cdk8s-plus-28";
-import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
+import { Namespace, Deployment, EnvValue, Protocol } from "cdk8s-plus-28";
+import { BitwardenAuthTokenChart } from "./bitwarden";
 import { getPublicSecurityMiddlewares } from "../lib/hosts";
 import { Certificate } from "../imports/cert-manager.io";
 import {
@@ -20,7 +11,7 @@ import {
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
 import { PostgresBackup } from "../lib/postgres-backup";
-import { Postgres } from "../lib/postgres";
+import { Postgres, PostgresCredentials } from "../lib/postgres";
 import { LocalPathPvc } from "../lib/local-path";
 
 interface ImmichChartProps extends ChartProps {
@@ -39,35 +30,21 @@ export class ImmichChart extends BitwardenAuthTokenChart {
       metadata: { name: namespace },
     });
 
-    const credentialsSecretName = "immich-db-credentials";
     // TODO: Create a secret in Bitwarden Secrets Manager and update this ID
     const dbPasswordBwSecretId = "00000000-0000-0000-0000-000000000000";
-    new BitwardenOrgSecret(this, "db-credentials", {
-      metadata: { name: credentialsSecretName, namespace },
-      spec: {
-        secretName: credentialsSecretName,
-        map: [
-          {
-            bwSecretId: dbPasswordBwSecretId,
-            secretKeyName: "password",
-          },
-        ],
+
+    const dbCredentials = new PostgresCredentials(
+      this,
+      "immich-db-credentials",
+      {
+        namespace,
+        passwordSecretId: dbPasswordBwSecretId,
       },
-    });
+    );
 
-    const dbName = "immich";
-    const dbUser = "immich";
-    const dbServiceName = "immich-postgres";
-
-    new Postgres(this, "immich-postgres", {
+    const postgres = new Postgres(this, "immich-postgres", {
       namespace,
-      name: "immich-postgres",
-      dbUser: EnvValue.fromValue(dbUser),
-      dbName: EnvValue.fromValue(dbName),
-      dbPassword: EnvValue.fromSecretValue({
-        secret: { name: credentialsSecretName } as any,
-        key: "password",
-      }),
+      credentials: dbCredentials,
     });
 
     const redisServiceName = "immich-redis";
@@ -98,7 +75,7 @@ export class ImmichChart extends BitwardenAuthTokenChart {
     const mlCacheVolume = new LocalPathPvc(this, "ml-cache-pvc", {
       namespace,
       name: "immich-ml-cache",
-    }).toVolume();
+    }).toVolume(this, "ml-cache-pv");
 
     const mlDeployment = new Deployment(this, "machine-learning", {
       metadata: {
@@ -133,7 +110,7 @@ export class ImmichChart extends BitwardenAuthTokenChart {
       namespace,
       name: "immich-library",
       storage: Size.tebibytes(1),
-    }).toVolume();
+    }).toVolume(this, "library-pv");
 
     const serverPodLabels = { "app.kubernetes.io/name": "immich-server" };
     const serverDeployment = new Deployment(this, "server", {
@@ -147,13 +124,10 @@ export class ImmichChart extends BitwardenAuthTokenChart {
           image: "ghcr.io/immich-app/immich-server:release",
           ports: [{ number: 2283, protocol: Protocol.TCP, name: "http" }],
           envVariables: {
-            DB_HOSTNAME: EnvValue.fromValue(dbServiceName),
-            DB_USERNAME: EnvValue.fromValue(dbUser),
-            DB_PASSWORD: EnvValue.fromSecretValue({
-              secret: { name: credentialsSecretName } as any,
-              key: "password",
-            }),
-            DB_DATABASE_NAME: EnvValue.fromValue(dbName),
+            DB_HOSTNAME: postgres.serviceFqdn,
+            DB_USERNAME: dbCredentials.user,
+            DB_PASSWORD: dbCredentials.password,
+            DB_DATABASE_NAME: dbCredentials.database,
             REDIS_HOSTNAME: EnvValue.fromValue(redisService.name),
             IMMICH_MACHINE_LEARNING_URL: EnvValue.fromValue(
               `http://${mlService.name}:3003`,
@@ -219,16 +193,8 @@ export class ImmichChart extends BitwardenAuthTokenChart {
     // PostgreSQL backup and restore (uses same restic credentials as central postgres)
     new PostgresBackup(this, "postgres-backup", {
       namespace,
-      name: "immich-db",
-      postgresHost: dbServiceName,
-      postgresUser: dbUser,
-      postgresDatabase: dbName,
-      postgresPasswordSecretName: credentialsSecretName,
-      postgresPasswordSecretKey: "password",
-      resticRepository: props.resticRepository,
-      resticAccessKeyIdBwSecretId: "cddf0c0b-52b1-4ca7-bdb5-b3e000f29516",
-      resticAccessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
-      resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
+      postgresHost: postgres.serviceFqdn,
+      postgresCredentials: dbCredentials,
     });
   }
 }

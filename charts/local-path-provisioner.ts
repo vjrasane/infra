@@ -1,7 +1,7 @@
 import { Construct } from "constructs";
 import { Chart, ChartProps, Helm } from "cdk8s";
 import { NodeAffinity } from "cdk8s-plus-28/lib/imports/k8s";
-import { LOCAL_PATH_STORAGE_CLASS_NAME } from "../lib/pvc";
+import { LOCAL_PATH_STORAGE_CLASS_NAME } from "../lib/local-path";
 
 interface NodePathMapping {
   readonly node: string;
