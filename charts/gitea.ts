@@ -69,8 +69,19 @@ export class GiteaChart extends BitwardenAuthTokenChart {
           nodeAffinity: requiredNodeAffinity(labelExists(CLOUD_PROVIDER_LABEL)),
         },
 
+        strategy: {
+          type: "Recreate",
+        },
+
         gitea: {
           config: {
+            service: {
+              ALLOW_ONLY_EXTERNAL_REGISTRATION: "true",
+              DISABLE_REGISTRATION: "true",
+              ENABLE_BASIC_AUTHENTICATION: "false",
+              ENABLE_PASSWORD_SIGNIN_FORM: "false",
+              REQUIRE_SIGNIN_VIEW: "true",
+            },
             database: {
               DB_TYPE: "sqlite3",
             },
@@ -81,9 +92,16 @@ export class GiteaChart extends BitwardenAuthTokenChart {
             packages: {
               ENABLED: "true",
             },
+            openid: {
+              ENABLE_OPENID_SIGNIN: "false",
+              ENABLE_OPENID_SIGNUP: "false",
+            },
+            oauth2: {
+              ENABLED: "true",
+            },
             oauth2_client: {
               ENABLE_AUTO_REGISTRATION: "true",
-              ACCOUNT_LINKING: "true",
+              ACCOUNT_LINKING: "auto",
               UPDATE_AVATAR: "true",
               ADMIN_GROUP: "gitea-admins",
             },
@@ -95,6 +113,7 @@ export class GiteaChart extends BitwardenAuthTokenChart {
               provider: "openidConnect",
               existingSecret: secret.name,
               autoDiscoverURL: `${props.authentikUrl}/application/o/gitea/.well-known/openid-configuration`,
+              scopes: "openid email profile groups",
               groupClaimName: "groups",
               adminGroup: "gitea-admins",
             },
