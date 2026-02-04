@@ -30,36 +30,30 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
     });
 
     // Bitwarden secrets
-    const secretKeySecretName = "authentik-secret-key"; // pragma: allowlist secret
-    new BitwardenOrgSecret(this, "secret-key", {
-      metadata: { name: secretKeySecretName, namespace },
-      spec: {
-        secretName: secretKeySecretName,
-        map: [
-          {
-            bwSecretId: "008e8051-67ef-462b-949a-b3bb0181855b",
-            secretKeyName: "AUTHENTIK_SECRET_KEY",
-          },
-        ],
-      },
+    const keySecret = new BitwardenOrgSecret(this, "secret-key", {
+      name: "authentik-secret-key",
+      namespace,
+      map: [
+        {
+          bwSecretId: "008e8051-67ef-462b-949a-b3bb0181855b",
+          secretKeyName: "AUTHENTIK_SECRET_KEY",
+        },
+      ],
     });
 
-    const bootstrapSecretName = "authentik-bootstrap"; // pragma: allowlist secret
-    new BitwardenOrgSecret(this, "bootstrap", {
-      metadata: { name: bootstrapSecretName, namespace },
-      spec: {
-        secretName: bootstrapSecretName,
-        map: [
-          {
-            bwSecretId: "0e60acee-ac8e-4411-b8a6-b3c10136eae9",
-            secretKeyName: "AUTHENTIK_BOOTSTRAP_EMAIL",
-          },
-          {
-            bwSecretId: "da979324-1d40-4ac4-a812-b3c101370203",
-            secretKeyName: "AUTHENTIK_BOOTSTRAP_PASSWORD",
-          },
-        ],
-      },
+    const bootstrapSecret = new BitwardenOrgSecret(this, "bootstrap", {
+      namespace,
+      name: "authentik-bootstrap",
+      map: [
+        {
+          bwSecretId: "0e60acee-ac8e-4411-b8a6-b3c10136eae9",
+          secretKeyName: "AUTHENTIK_BOOTSTRAP_EMAIL",
+        },
+        {
+          bwSecretId: "da979324-1d40-4ac4-a812-b3c101370203",
+          secretKeyName: "AUTHENTIK_BOOTSTRAP_PASSWORD",
+        },
+      ],
     });
 
     const dbCredentials = new PostgresCredentials(this, "db-credentials", {
@@ -75,8 +69,8 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       values: {
         global: {
           envFrom: [
-            { secretRef: { name: secretKeySecretName } },
-            { secretRef: { name: bootstrapSecretName } },
+            { secretRef: { name: keySecret.name } },
+            { secretRef: { name: bootstrapSecret.name } },
           ],
           env: [
             {

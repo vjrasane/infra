@@ -29,50 +29,41 @@ export class PlankaChart extends BitwardenAuthTokenChart {
     });
 
     // Bitwarden secrets
-    const secretKeySecretName = "planka-secretkey";
-    new BitwardenOrgSecret(this, "secretkey", {
-      metadata: { name: secretKeySecretName, namespace },
-      spec: {
-        secretName: secretKeySecretName,
-        map: [
-          {
-            bwSecretId: "1c07820c-f3d4-48a2-b393-b3bb01803ffc",
-            secretKeyName: "key",
-          },
-        ],
-      },
+    const keySecret = new BitwardenOrgSecret(this, "secretkey", {
+      namespace,
+      name: "planka-secretkey",
+      map: [
+        {
+          bwSecretId: "1c07820c-f3d4-48a2-b393-b3bb01803ffc",
+          secretKeyName: "key",
+        },
+      ],
     });
 
-    const oidcSecretName = "planka-oidc";
-    new BitwardenOrgSecret(this, "oidc", {
-      metadata: { name: oidcSecretName, namespace },
-      spec: {
-        secretName: oidcSecretName,
-        map: [
-          {
-            bwSecretId: "3cd04ac7-3019-495b-912d-b3bb018119fa",
-            secretKeyName: "clientId",
-          },
-          {
-            bwSecretId: "c184e87e-72e2-4a8e-9a9d-b3bb01812bba",
-            secretKeyName: "clientSecret",
-          },
-        ],
-      },
+    const oidcSecret = new BitwardenOrgSecret(this, "oidc", {
+      namespace,
+      name: "planka-oidc",
+      map: [
+        {
+          bwSecretId: "3cd04ac7-3019-495b-912d-b3bb018119fa",
+          secretKeyName: "clientId",
+        },
+        {
+          bwSecretId: "c184e87e-72e2-4a8e-9a9d-b3bb01812bba",
+          secretKeyName: "clientSecret",
+        },
+      ],
     });
 
-    const dbUrlSecretName = "planka-dburl";
-    new BitwardenOrgSecret(this, "dburl", {
-      metadata: { name: dbUrlSecretName, namespace },
-      spec: {
-        secretName: dbUrlSecretName,
-        map: [
-          {
-            bwSecretId: "3beb8422-9bf2-4f37-a8bf-b3bb018a6953",
-            secretKeyName: "uri",
-          },
-        ],
-      },
+    const dbUrlSecret = new BitwardenOrgSecret(this, "dburl", {
+      namespace,
+      name: "planka-dburl",
+      map: [
+        {
+          bwSecretId: "3beb8422-9bf2-4f37-a8bf-b3bb018a6953",
+          secretKeyName: "uri",
+        },
+      ],
     });
 
     new LocalVolume(this, "data", {
@@ -98,12 +89,12 @@ export class PlankaChart extends BitwardenAuthTokenChart {
           existingClaim: "planka-data",
         },
         postgresql: { enabled: false },
-        existingSecretkeySecret: secretKeySecretName,
-        existingDburlSecret: dbUrlSecretName,
+        existingSecretkeySecret: keySecret.name,
+        existingDburlSecret: dbUrlSecret.name,
         oidc: {
           enabled: true,
           issuerUrl: "https://auth.home.karkki.org/application/o/planka/",
-          existingSecret: oidcSecretName,
+          existingSecret: oidcSecret.name,
           scopes: "openid profile email groups",
           admin: {
             roles: ["planka-admins"],

@@ -114,16 +114,14 @@ export class PostgresCredentials extends Construct {
     this.database = EnvValue.fromValue(database);
 
     const secret = new BitwardenOrgSecret(this, "bw-secret", {
-      metadata: { name: this.passwordSecretName, namespace },
-      spec: {
-        secretName: this.passwordSecretName,
-        map: [
-          {
-            bwSecretId: passwordSecretId,
-            secretKeyName: this.passwordSecretKey,
-          },
-        ],
-      },
+      namespace,
+      name: this.passwordSecretName,
+      map: [
+        {
+          bwSecretId: passwordSecretId,
+          secretKeyName: this.passwordSecretKey,
+        },
+      ],
     });
 
     this.password = EnvValue.fromSecretValue({

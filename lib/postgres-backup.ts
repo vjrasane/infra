@@ -1,6 +1,6 @@
 import { Construct } from "constructs";
 import { Cron } from "cdk8s";
-import { CronJob, Env, EnvValue, Secret, Volume } from "cdk8s-plus-28";
+import { CronJob, Env, EnvValue, Volume } from "cdk8s-plus-28";
 import { ResticCredentials } from "./restic";
 import { PostgresCredentials } from "./postgres";
 
@@ -59,11 +59,7 @@ export class PostgresBackup extends Construct {
     //   "pg-secret",
     //   postgresPasswordSecretName,
     // );
-    const resticSecret = Secret.fromSecretName(
-      this,
-      "restic-secret",
-      credentials.secretName,
-    );
+    const resticSecret = credentials.toSecret(this, "restic-secret");
 
     // Daily backup CronJob
     // Init container: pg_dump to emptyDir

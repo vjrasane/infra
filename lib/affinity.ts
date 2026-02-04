@@ -44,6 +44,9 @@ export function labelDoesNotExist(label: string): NodeSelectorRequirement {
   return nodeMatchExpression(label, "DoesNotExist");
 }
 
+export const CLOUD_PROVIDER_LABEL = "karkki.org/cloud-provider";
+export const HAPROXY_LABEL = "karkki.org/haproxy";
+
 export function requiredNodeAffinity(
   ...expressions: NodeSelectorRequirement[]
 ): NodeAffinity {
@@ -69,9 +72,9 @@ export function preferredNodeAffinity(
 }
 
 export const cloudNode = new LabeledNode([
-  NodeLabelQuery.exists("karkki.org/cloud-provider"),
+  NodeLabelQuery.exists(CLOUD_PROVIDER_LABEL),
 ]);
 
 export const haproxyNode = new LabeledNode([
-  NodeLabelQuery.exists("karkki.org/haproxy"),
+  NodeLabelQuery.exists(HAPROXY_LABEL),
 ]);

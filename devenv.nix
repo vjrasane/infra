@@ -19,20 +19,21 @@
 
   languages.typescript.enable = true;
 
-  packages = [
-    pkgs.ansible
-    pkgs.backblaze-b2
-    pkgs.cdk8s-cli
-    pkgs.kubectl
-    pkgs.kubernetes-helm
-    pkgs.just
-    pkgs.samba
+  packages = with pkgs; [
+    ansible
+    backblaze-b2
+    cdk8s-cli
+    kubectl
+    kubernetes-helm
+    just
+    samba
+    bws
   ];
 
   scripts.b2.exec = "backblaze-b2 $@";
 
   git-hooks.hooks = {
-    nixfmt-rfc-style.enable = true;
+    nixfmt.enable = true;
     check-shebang-scripts-are-executable.enable = true;
     check-symlinks.enable = true;
     check-yaml.enable = true;

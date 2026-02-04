@@ -19,21 +19,15 @@ export class TraefikDashboardChart extends BitwardenAuthTokenChart {
     const namespace = "traefik";
     super(scope, id, { ...props, namespace });
 
-    const basicAuthSecretName = "traefik-basic-auth";
-    new BitwardenOrgSecret(this, "basic-auth-secret", {
-      metadata: {
-        name: basicAuthSecretName,
-        namespace,
-      },
-      spec: {
-        secretName: basicAuthSecretName,
-        map: [
-          {
-            bwSecretId: "737269fb-cd4b-4a9d-a47d-b3b2017c5080",
-            secretKeyName: "users",
-          },
-        ],
-      },
+    const basicAuthSecret = new BitwardenOrgSecret(this, "basic-auth-secret", {
+      namespace,
+      name: "traefik-basic-auth",
+      map: [
+        {
+          bwSecretId: "737269fb-cd4b-4a9d-a47d-b3b2017c5080",
+          secretKeyName: "users",
+        },
+      ],
     });
 
     const basicAuthMiddleware = new Middleware(this, "auth", {
@@ -43,7 +37,7 @@ export class TraefikDashboardChart extends BitwardenAuthTokenChart {
       },
       spec: {
         basicAuth: {
-          secret: basicAuthSecretName,
+          secret: basicAuthSecret.name,
         },
       },
     });

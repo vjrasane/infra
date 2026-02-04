@@ -1,6 +1,13 @@
 import { Construct } from "constructs";
 import { Cron, ChartProps } from "cdk8s";
-import { Namespace, CronJob, ServiceAccount, Role, RoleBinding, ApiResource } from "cdk8s-plus-28";
+import {
+  Namespace,
+  CronJob,
+  ServiceAccount,
+  Role,
+  RoleBinding,
+  ApiResource,
+} from "cdk8s-plus-28";
 import * as yaml from "yaml";
 import { Crowdsec } from "../imports/crowdsec";
 import { Middleware } from "../imports/traefik.io";
@@ -32,32 +39,15 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
     this.lapiHost = `${this.lapiServiceName}.${namespace}.svc.cluster.local:${this.lapiPort}`;
     this.appsecHost = `${this.appsecServiceName}.${namespace}.svc.cluster.local:${this.appsecPort}`;
 
-    const enrollKeySecretName = "crowdsec-enroll-key";
-    new BitwardenOrgSecret(this, "enroll-key-secret", {
-      metadata: { name: enrollKeySecretName, namespace },
-      spec: {
-        secretName: enrollKeySecretName,
-        map: [
-          {
-            bwSecretId: "f5942111-76c3-4264-b738-b3df00ea77ca",
-            secretKeyName: "enroll-key",
-          },
-        ],
-      },
-    });
-
-    const bouncerKeySecretName = "crowdsec-bouncer-key";
-    new BitwardenOrgSecret(this, "bouncer-key-secret", {
-      metadata: { name: bouncerKeySecretName, namespace },
-      spec: {
-        secretName: bouncerKeySecretName,
-        map: [
-          {
-            bwSecretId: "e462ab7b-f219-4fd9-b8c0-b3df00ea0e48",
-            secretKeyName: "api-key",
-          },
-        ],
-      },
+    const enrollSecret = new BitwardenOrgSecret(this, "enroll-key-secret", {
+      namespace,
+      name: "crowdsec-enroll-key",
+      map: [
+        {
+          bwSecretId: "f5942111-76c3-4264-b738-b3df00ea77ca",
+          secretKeyName: "enroll-key",
+        },
+      ],
     });
 
     const blockedCountries = props.blockedCountries ?? [];
@@ -85,7 +75,7 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
               name: "ENROLL_KEY",
               valueFrom: {
                 secretKeyRef: {
-                  name: enrollKeySecretName,
+                  name: enrollSecret.name,
                   key: "enroll-key",
                 },
               },
@@ -191,7 +181,10 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
       }).addSubjects(geoBlockSa);
 
       const cscliCommands = blockedCountries
-        .map((c) => `cscli decisions add --scope Country --value ${c} --duration 8760h --reason geo-block`)
+        .map(
+          (c) =>
+            `cscli decisions add --scope Country --value ${c} --duration 8760h --reason geo-block`,
+        )
         .join(" && ");
 
       new CronJob(this, "geo-block-cronjob", {

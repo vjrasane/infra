@@ -1,6 +1,6 @@
 import { Construct } from "constructs";
 import { Cron } from "cdk8s";
-import { CronJob, Env, EnvValue, Secret, Volume } from "cdk8s-plus-28";
+import { CronJob, Env, EnvValue, ISecret, Secret, Volume } from "cdk8s-plus-28";
 import { BitwardenOrgSecret } from "../charts/bitwarden";
 
 interface ResticCredentialsProps {
@@ -11,59 +11,46 @@ interface ResticCredentialsProps {
   readonly resticPasswordBwSecretId: string;
 }
 
-export class ResticCredentials extends Construct {
-  public readonly secretName: string;
-
+export class ResticCredentials extends BitwardenOrgSecret {
   constructor(scope: Construct, id: string, props: ResticCredentialsProps) {
-    super(scope, id);
-
-    this.secretName = props.name;
-
-    new BitwardenOrgSecret(this, "secret", {
-      metadata: { name: props.name, namespace: props.namespace },
-      spec: {
-        secretName: props.name,
-        map: [
-          {
-            bwSecretId: props.accessKeyIdBwSecretId,
-            secretKeyName: "AWS_ACCESS_KEY_ID",
-          },
-          {
-            bwSecretId: props.accessKeySecretBwSecretId,
-            secretKeyName: "AWS_SECRET_ACCESS_KEY",
-          },
-          {
-            bwSecretId: props.resticPasswordBwSecretId,
-            secretKeyName: "RESTIC_PASSWORD",
-          },
-        ],
-      },
+    super(scope, id, {
+      ...props,
+      map: [
+        {
+          bwSecretId: props.accessKeyIdBwSecretId,
+          secretKeyName: "AWS_ACCESS_KEY_ID",
+        },
+        {
+          bwSecretId: props.accessKeySecretBwSecretId,
+          secretKeyName: "AWS_SECRET_ACCESS_KEY",
+        },
+        {
+          bwSecretId: props.resticPasswordBwSecretId,
+          secretKeyName: "RESTIC_PASSWORD",
+        },
+      ],
     });
   }
+
+  toSecret = (scope: Construct, id: string) => {
+    return Secret.fromSecretName(scope, id, this.name);
+  };
 }
 
 interface ResticBackupProps {
   readonly namespace: string;
   readonly name: string;
   readonly repository: string;
-  readonly credentialsSecretName: string;
+  readonly credentials: ISecret;
   readonly hostName: string;
   readonly volume: Volume;
   readonly schedule: Cron;
 }
 
-export class ResticBackup extends Construct {
+export class ResticBackup extends CronJob {
   constructor(scope: Construct, id: string, props: ResticBackupProps) {
-    super(scope, id);
-
     const mountPath = `/${props.hostName}`;
-    const credentialsSecret = Secret.fromSecretName(
-      this,
-      "credentials",
-      props.credentialsSecretName,
-    );
-
-    new CronJob(this, "cronjob", {
+    super(scope, id, {
       metadata: { name: props.name, namespace: props.namespace },
       schedule: props.schedule,
       successfulJobsRetained: 1,
@@ -86,7 +73,7 @@ restic snapshots`,
           envVariables: {
             RESTIC_REPOSITORY: EnvValue.fromValue(props.repository),
           },
-          envFrom: [Env.fromSecret(credentialsSecret)],
+          envFrom: [Env.fromSecret(props.credentials)],
           volumeMounts: [{ path: mountPath, volume: props.volume }],
           securityContext: {
             ensureNonRoot: false,
@@ -102,26 +89,18 @@ interface ResticPruneProps {
   readonly namespace: string;
   readonly name: string;
   readonly repository: string;
-  readonly credentialsSecretName: string;
+  readonly credentials: ISecret;
   readonly hostName: string;
   readonly schedule: Cron;
   readonly keepWeekly?: number;
   readonly keepMonthly?: number;
 }
 
-export class ResticPrune extends Construct {
+export class ResticPrune extends CronJob {
   constructor(scope: Construct, id: string, props: ResticPruneProps) {
-    super(scope, id);
-
     const keepWeekly = props.keepWeekly ?? 4;
     const keepMonthly = props.keepMonthly ?? 6;
-    const credentialsSecret = Secret.fromSecretName(
-      this,
-      "credentials",
-      props.credentialsSecretName,
-    );
-
-    new CronJob(this, "cronjob", {
+    super(scope, id, {
       metadata: { name: props.name, namespace: props.namespace },
       schedule: props.schedule,
       successfulJobsRetained: 1,
@@ -141,7 +120,7 @@ restic snapshots`,
           envVariables: {
             RESTIC_REPOSITORY: EnvValue.fromValue(props.repository),
           },
-          envFrom: [Env.fromSecret(credentialsSecret)],
+          envFrom: [Env.fromSecret(props.credentials)],
           securityContext: {
             ensureNonRoot: false,
             readOnlyRootFilesystem: false,

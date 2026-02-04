@@ -39,22 +39,19 @@ export class KubePrometheusStackChart extends BitwardenAuthTokenChart {
       },
     });
 
-    const grafanaOauthSecretName = "grafana-oauth";
-    new BitwardenOrgSecret(this, "grafana-oauth", {
-      metadata: { name: grafanaOauthSecretName, namespace },
-      spec: {
-        secretName: grafanaOauthSecretName,
-        map: [
-          {
-            bwSecretId: "1e5dfbd5-de25-493d-af39-b3e60077c30b",
-            secretKeyName: "GF_AUTH_GENERIC_OAUTH_CLIENT_ID",
-          },
-          {
-            bwSecretId: "a6cc4141-6d8d-4fc2-a510-b3e60077d988",
-            secretKeyName: "GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET",
-          },
-        ],
-      },
+    const grafanaOauthSecret = new BitwardenOrgSecret(this, "grafana-oauth", {
+      namespace,
+      name: "grafana-oauth",
+      map: [
+        {
+          bwSecretId: "1e5dfbd5-de25-493d-af39-b3e60077c30b",
+          secretKeyName: "GF_AUTH_GENERIC_OAUTH_CLIENT_ID",
+        },
+        {
+          bwSecretId: "a6cc4141-6d8d-4fc2-a510-b3e60077d988",
+          secretKeyName: "GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET",
+        },
+      ],
     });
 
     // Prometheus Operator CRDs (ServiceMonitor, PodMonitor, PrometheusRule, etc.)
@@ -86,7 +83,7 @@ export class KubePrometheusStackChart extends BitwardenAuthTokenChart {
           initChownData: {
             enabled: false,
           },
-          envFromSecrets: [{ name: grafanaOauthSecretName }],
+          envFromSecrets: [{ name: grafanaOauthSecret.name }],
           "grafana.ini": {
             server: {
               root_url: props.grafanaRootUrl,

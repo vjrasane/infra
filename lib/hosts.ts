@@ -8,18 +8,18 @@ export const baseDomain = "karkki.org";
 export const homeDomain = `home.${baseDomain}`;
 export const cloudDomain = `cloud.${baseDomain}`;
 
-const domains = [baseDomain, homeDomain, cloudDomain];
+const domains = [cloudDomain, baseDomain, homeDomain];
 
 const crowdsecMiddleware = { name: "crowdsec-bouncer", namespace: "traefik" };
 
 function isPublicHost(hosts: string[]): boolean {
   return hosts.some(
-    (host) => host.endsWith(baseDomain) && !host.endsWith(homeDomain)
+    (host) => host.endsWith(baseDomain) && !host.endsWith(homeDomain),
   );
 }
 
 export function getPublicSecurityMiddlewares(
-  hosts: string[]
+  hosts: string[],
 ): Array<{ name: string; namespace: string }> | undefined {
   if (!isPublicHost(hosts)) {
     return undefined;

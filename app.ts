@@ -32,6 +32,8 @@ import { LokiChart } from "./charts/loki";
 import { CrowdSecChart } from "./charts/crowdsec";
 import { HAProxyChart } from "./charts/haproxy";
 import { ImmichChart } from "./charts/immich";
+import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
+import { GiteaChart } from "./charts/gitea";
 
 const app = new App();
 
@@ -39,6 +41,8 @@ const resticRepository =
   "s3:s3.eu-central-003.backblazeb2.com/karkkinet-restic-repo";
 const psqlResticRepository =
   "s3:485029190166e70f3358ab9fc87c6b4f.r2.cloudflarestorage.com/karkkinet-psql-backups";
+const giteaResticRepository =
+  "s3:https://fr9g5xx9nd3r.compat.objectstorage.eu-frankfurt-1.oraclecloud.com/karkkinet-gitea-backups";
 
 new BitwardenSecretsManagerChart(app, "bitwarden");
 new MetalLBChart(app, "metallb", {
@@ -63,14 +67,10 @@ new HAProxyChart(app, "haproxy", {
   traefikServiceHost: "traefik.traefik.svc.cluster.local",
   nodes: [cloudNode, haproxyNode],
 });
-new TraefikChart(app, "traefik", {
-  crowdsecBouncerEnabled: true,
-});
+new TraefikChart(app, "traefik");
 
-const clusterIssuerName = "cloudflare-issuer";
-new CertManagerChart(app, "cert-manager", {
-  clusterIssuerName,
-});
+const clusterIssuerName = CLUSTER_ISSUER_NAME;
+new CertManagerChart(app, "cert-manager");
 new HeadlampChart(app, "headlamp", {
   hosts: [homeSubdomain("headlamp")],
   clusterIssuerName,
@@ -88,8 +88,11 @@ new PostgresChart(app, "postgres", {
   clusterIssuerName,
   resticRepository: psqlResticRepository,
 });
+
+const authentikDomain = cloudSubdomain("auth");
+const authentikUrl = `https://${authentikDomain}`;
 new AuthentikChart(app, "authentik", {
-  hosts: allSubdomains("auth"),
+  hosts: [authentikDomain],
   clusterIssuerName,
   resticRepository: psqlResticRepository,
 });
@@ -119,7 +122,7 @@ new JellyfinChart(app, "jellyfin", {
 new KubePrometheusStackChart(app, "kube-prometheus-stack", {
   grafanaHosts: allSubdomains("grafana"),
   grafanaRootUrl: `https://${cloudSubdomain("grafana")}`,
-  authentikUrl: `https://${cloudSubdomain("auth")}`,
+  authentikUrl,
   prometheusHosts: [homeSubdomain("prometheus")],
   alertmanagerHosts: [homeSubdomain("alertmanager")],
   clusterIssuerName,
@@ -139,6 +142,11 @@ new ImmichChart(app, "immich", {
   hosts: allSubdomains("immich"),
   clusterIssuerName,
   resticRepository: psqlResticRepository,
+});
+new GiteaChart(app, "gitea", {
+  hosts: allSubdomains("gitea"),
+  authentikUrl,
+  resticRepository: giteaResticRepository,
 });
 
 export default app;

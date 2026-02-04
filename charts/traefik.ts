@@ -1,22 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Construct } from "constructs";
-import { ChartProps, Include } from "cdk8s";
+import { Include } from "cdk8s";
 import { ConfigMap, Namespace } from "cdk8s-plus-28";
 import { ServiceMonitor } from "../imports/monitoring.coreos.com";
 import { Traefik, TraefikValues } from "../imports/traefik";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 import { createSecurityMiddlewares } from "../lib/security";
 
-interface TraefikChartProps extends ChartProps {
-  readonly values?: Record<string, unknown>;
-  readonly crowdsecBouncerEnabled?: boolean;
-}
-
 export class TraefikChart extends BitwardenAuthTokenChart {
-  constructor(scope: Construct, id: string, props: TraefikChartProps = {}) {
+  constructor(scope: Construct, id: string) {
     const namespace = "traefik";
-    super(scope, id, { ...props, namespace });
+    super(scope, id, { namespace });
 
     new Namespace(this, "namespace", {
       metadata: {
@@ -32,21 +27,20 @@ export class TraefikChart extends BitwardenAuthTokenChart {
     // Security middlewares (headers, rate limiting)
     createSecurityMiddlewares(this);
 
-    const bouncerKeySecretName = "crowdsec-bouncer-key";
-    if (props.crowdsecBouncerEnabled) {
-      new BitwardenOrgSecret(this, "bouncer-key-secret", {
-        metadata: { name: bouncerKeySecretName, namespace },
-        spec: {
-          secretName: bouncerKeySecretName,
-          map: [
-            {
-              bwSecretId: "e462ab7b-f219-4fd9-b8c0-b3df00ea0e48",
-              secretKeyName: "api-key",
-            },
-          ],
-        },
-      });
-    }
+    const bouncerKeySecret = new BitwardenOrgSecret(
+      this,
+      "bouncer-key-secret",
+      {
+        namespace,
+        name: "crowdsec-bouncer-key",
+        map: [
+          {
+            bwSecretId: "e462ab7b-f219-4fd9-b8c0-b3df00ea0e48",
+            secretKeyName: "api-key",
+          },
+        ],
+      },
+    );
 
     const values: TraefikValues = {
       autoscaling: {
@@ -105,24 +99,22 @@ export class TraefikChart extends BitwardenAuthTokenChart {
           },
         },
       },
-      ...(props.crowdsecBouncerEnabled && {
-        experimental: {
-          plugins: {
-            "crowdsec-bouncer-traefik-plugin": {
-              moduleName:
-                "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin",
-              version: "v1.3.5",
-            },
+      experimental: {
+        plugins: {
+          "crowdsec-bouncer-traefik-plugin": {
+            moduleName:
+              "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin",
+            version: "v1.3.5",
           },
         },
-        volumes: [
-          {
-            name: bouncerKeySecretName,
-            mountPath: "/etc/traefik/crowdsec-bouncer-key",
-            type: "secret",
-          },
-        ],
-      }),
+      },
+      volumes: [
+        {
+          name: bouncerKeySecret.name,
+          mountPath: "/etc/traefik/crowdsec-bouncer-key",
+          type: "secret",
+        },
+      ],
     };
 
     new Traefik(this, "traefik", {

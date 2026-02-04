@@ -33,18 +33,15 @@ export class VectorChart extends BitwardenAuthTokenChart {
       metadata: { name: namespace },
     });
 
-    const secretName = "vector-webhook";
-    new BitwardenOrgSecret(this, "webhook-secret", {
-      metadata: { name: secretName, namespace },
-      spec: {
-        secretName,
-        map: [
-          {
-            bwSecretId: "981aa902-ac2c-4a5a-833c-b3de0076c096",
-            secretKeyName: "token",
-          },
-        ],
-      },
+    const webhookSecret = new BitwardenOrgSecret(this, "webhook-secret", {
+      namespace,
+      name: "vector-webhook",
+      map: [
+        {
+          bwSecretId: "981aa902-ac2c-4a5a-833c-b3de0076c096",
+          secretKeyName: "token",
+        },
+      ],
     });
 
     const vectorConfig = {
@@ -138,7 +135,7 @@ export class VectorChart extends BitwardenAuthTokenChart {
             name: "WEBHOOK_TOKEN",
             valueFrom: {
               secretKeyRef: {
-                name: secretName,
+                name: webhookSecret.name,
                 key: "token",
               },
             },

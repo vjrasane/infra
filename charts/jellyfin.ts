@@ -135,7 +135,7 @@ export class JellyfinChart extends BitwardenAuthTokenChart {
       accessKeyIdBwSecretId: "43c2041e-177f-494d-b78a-b3d60141f01f",
       accessKeySecretBwSecretId: "98e48367-4a09-40e0-977b-b3d60141da4d",
       resticPasswordBwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
-    });
+    }).toSecret(this, "restic-credentials-secret");
 
     const hostName = "jellyfin";
 
@@ -143,7 +143,7 @@ export class JellyfinChart extends BitwardenAuthTokenChart {
       namespace,
       name: "jellyfin-backup",
       repository: props.resticRepository,
-      credentialsSecretName: credentials.secretName,
+      credentials,
       hostName,
       volume: configVolume,
       schedule: Cron.schedule({ minute: "0", hour: "5", weekDay: "0" }), // Sunday 5 AM
@@ -153,7 +153,7 @@ export class JellyfinChart extends BitwardenAuthTokenChart {
       namespace,
       name: "jellyfin-prune",
       repository: props.resticRepository,
-      credentialsSecretName: credentials.secretName,
+      credentials,
       hostName,
       schedule: Cron.schedule({ minute: "0", hour: "5", day: "1" }), // 1st of month 5 AM
     });

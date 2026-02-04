@@ -48,11 +48,12 @@ export class SambaChart extends BitwardenAuthTokenChart {
     });
 
     // Samba credentials from Bitwarden
-    const credentialsSecretName = "samba-credentials"; // pragma: allowlist secret
-    new BitwardenOrgSecret(this, "credentials-secret", {
-      metadata: { name: credentialsSecretName, namespace },
-      spec: {
-        secretName: credentialsSecretName,
+    const credentialsSecret = new BitwardenOrgSecret(
+      this,
+      "credentials-secret",
+      {
+        namespace,
+        name: "samba-credentials",
         map: [
           {
             bwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
@@ -60,7 +61,7 @@ export class SambaChart extends BitwardenAuthTokenChart {
           },
         ],
       },
-    });
+    );
 
     const { volume: dataVolume } = new LocalVolume(this, "data", {
       pvName: "samba-pv",
@@ -128,7 +129,7 @@ export class SambaChart extends BitwardenAuthTokenChart {
             GROUPID: EnvValue.fromValue("1000"),
             USER: EnvValue.fromValue(username),
             SAMBA_PASSWORD: EnvValue.fromSecretValue({
-              secret: { name: credentialsSecretName } as any,
+              secret: { name: credentialsSecret.name } as any,
               key: "password",
             }),
           },
@@ -158,7 +159,7 @@ smbd --foreground --no-process-group --log-stdout`,
       accessKeyIdBwSecretId: "43c2041e-177f-494d-b78a-b3d60141f01f",
       accessKeySecretBwSecretId: "98e48367-4a09-40e0-977b-b3d60141da4d",
       resticPasswordBwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
-    });
+    }).toSecret(this, "restic-credentials-secret");
 
     const hostName = "samba";
 
@@ -166,7 +167,7 @@ smbd --foreground --no-process-group --log-stdout`,
       namespace,
       name: "samba-backup",
       repository: props.resticRepository,
-      credentialsSecretName: credentials.secretName,
+      credentials,
       hostName,
       volume: dataVolume,
       schedule: Cron.schedule({ minute: "0", hour: "4", weekDay: "0" }), // Sunday 4 AM
@@ -176,7 +177,7 @@ smbd --foreground --no-process-group --log-stdout`,
       namespace,
       name: "samba-prune",
       repository: props.resticRepository,
-      credentialsSecretName: credentials.secretName,
+      credentials,
       hostName,
       schedule: Cron.schedule({ minute: "0", hour: "4", day: "1" }), // 1st of month 4 AM
     });

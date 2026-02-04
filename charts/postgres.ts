@@ -43,11 +43,12 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     });
 
     // Shared credentials from Bitwarden (used by both PostgreSQL and pgAdmin)
-    const credentialsSecretName = "postgres-credentials"; // pragma: allowlist secret
-    new BitwardenOrgSecret(this, "credentials-secret", {
-      metadata: { name: credentialsSecretName, namespace },
-      spec: {
-        secretName: credentialsSecretName,
+    const credentialsSecret = new BitwardenOrgSecret(
+      this,
+      "credentials-secret",
+      {
+        namespace,
+        name: "postgres-credentials",
         map: [
           {
             bwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
@@ -55,7 +56,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
           },
         ],
       },
-    });
+    );
 
     const dataVolume = new LocalPathPvc(this, "data-pvc", {
       name: "postgres-data",
@@ -87,7 +88,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
           envVariables: {
             POSTGRES_USER: EnvValue.fromValue("postgres"),
             POSTGRES_PASSWORD: EnvValue.fromSecretValue({
-              secret: { name: credentialsSecretName } as any,
+              secret: { name: credentialsSecret.name } as any,
               key: "password",
             }),
             PGDATA: EnvValue.fromValue("/var/lib/postgresql/data/pgdata"),
@@ -163,7 +164,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
           envVariables: {
             PGADMIN_DEFAULT_EMAIL: EnvValue.fromValue("admin@home.karkki.org"),
             PGADMIN_DEFAULT_PASSWORD: EnvValue.fromSecretValue({
-              secret: { name: credentialsSecretName } as any,
+              secret: { name: credentialsSecret.name } as any,
               key: "password",
             }),
             PGADMIN_SERVER_JSON_FILE: EnvValue.fromValue(
@@ -259,13 +260,9 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     const pgSecret = Secret.fromSecretName(
       this,
       "pg-secret-ref",
-      credentialsSecretName,
+      credentialsSecret.name,
     );
-    const resticSecret = Secret.fromSecretName(
-      this,
-      "restic-secret-ref",
-      credentials.secretName,
-    );
+    const resticSecret = credentials.toSecret(this, "restic-secret-ref");
 
     // Daily backup CronJob (runs at 2 AM)
     // Init container: pg_dumpall to emptyDir
