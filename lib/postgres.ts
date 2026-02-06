@@ -14,6 +14,7 @@ import { LocalPathPvc } from "./local-path";
 interface PostgresProps {
   namespace: string;
   name?: string;
+  image?: string;
   volume?: Volume;
   credentials: PostgresCredentials;
   node?: LabeledNode;
@@ -28,13 +29,14 @@ export class Postgres extends Construct {
     const { namespace, volume, credentials, node } = props;
 
     const name = props.name ?? namespace + "-postgres";
+    const image = props.image ?? "postgres:17";
 
     const dbVolume =
       volume ??
       new LocalPathPvc(this, "pvc", {
         namespace,
         name: name + "-data",
-      }).toVolume(this, "pv");
+      }).toVolume();
 
     const dbPodLabels = { "app.kubernetes.io/name": name };
     this.service = new Service(this, "postgres-service", {
@@ -55,7 +57,7 @@ export class Postgres extends Construct {
       containers: [
         {
           name: "postgres",
-          image: "tensorchord/pgvecto-rs:pg17-v0.4.0",
+          image,
           portNumber: 5432,
           envVariables: {
             POSTGRES_USER: credentials.user,

@@ -17,9 +17,11 @@
   },
   "dependencies": {
     "@kubernetes/client-node": "^1.4.0",
+    "@types/lodash": "^4.17.23",
     "cdk8s": "^2.70.36",
     "cdk8s-plus-28": "^2.5.6",
     "constructs": "^10.4.4",
+    "lodash": "^4.17.23",
     "yaml": "^2.8.2"
   },
   "devDependencies": {

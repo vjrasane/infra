@@ -44,6 +44,7 @@ export class ImmichChart extends BitwardenAuthTokenChart {
 
     const postgres = new Postgres(this, "immich-postgres", {
       namespace,
+      image: "tensorchord/pgvecto-rs:pg17-v0.4.0",
       credentials: dbCredentials,
     });
 
@@ -75,7 +76,7 @@ export class ImmichChart extends BitwardenAuthTokenChart {
     const mlCacheVolume = new LocalPathPvc(this, "ml-cache-pvc", {
       namespace,
       name: "immich-ml-cache",
-    }).toVolume(this, "ml-cache-pv");
+    }).toVolume();
 
     const mlDeployment = new Deployment(this, "machine-learning", {
       metadata: {
@@ -110,7 +111,7 @@ export class ImmichChart extends BitwardenAuthTokenChart {
       namespace,
       name: "immich-library",
       storage: Size.tebibytes(1),
-    }).toVolume(this, "library-pv");
+    }).toVolume();
 
     const serverPodLabels = { "app.kubernetes.io/name": "immich-server" };
     const serverDeployment = new Deployment(this, "server", {

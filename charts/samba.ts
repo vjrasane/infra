@@ -159,7 +159,7 @@ smbd --foreground --no-process-group --log-stdout`,
       accessKeyIdBwSecretId: "43c2041e-177f-494d-b78a-b3d60141f01f",
       accessKeySecretBwSecretId: "98e48367-4a09-40e0-977b-b3d60141da4d",
       resticPasswordBwSecretId: "31406ff6-6d88-4694-82e6-b3d400b71b05",
-    }).toSecret(this, "restic-credentials-secret");
+    }).toSecret();
 
     const hostName = "samba";
 

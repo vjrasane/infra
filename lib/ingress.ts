@@ -1,19 +1,27 @@
+import { Service } from "cdk8s-plus-28";
 import { Construct } from "constructs";
+import { omitBy, isNil } from "lodash/fp";
 import { Certificate } from "../imports/cert-manager.io";
 import {
   IngressRoute,
   IngressRouteProps,
   IngressRouteSpecRoutesKind,
   IngressRouteSpecRoutesServices,
+  IngressRouteSpecRoutesServicesKind,
+  IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
 import { getPublicSecurityMiddlewares } from "./hosts";
 
-interface SecureIngressRouteProps {
-  readonly namespace: string;
+interface SecureIngressRouteProps extends SecureIngressRouteFromServiceProps {
+  readonly services: IngressRouteSpecRoutesServices[];
+}
+
+interface SecureIngressRouteFromServiceProps {
+  readonly namespace?: string;
   readonly name?: string;
+  readonly secretName?: string;
   readonly hosts: string[];
   readonly metadata?: IngressRouteProps["metadata"];
-  readonly services: IngressRouteSpecRoutesServices[];
 }
 
 export const CLUSTER_ISSUER_NAME = "cloudflare-issuer";
@@ -25,9 +33,9 @@ export class SecureIngressRoute extends Construct {
     const { namespace, hosts, services } = props;
     const name = props.name ?? namespace;
 
-    const secretName = `${name}-tls-secret`;
+    const secretName = props.secretName ?? `${name ?? this.node.id}-tls-secret`;
     new Certificate(this, "certificate", {
-      metadata: { name: name, namespace },
+      metadata: omitBy(isNil, { name, namespace }),
       spec: {
         secretName,
         issuerRef: {
@@ -40,20 +48,11 @@ export class SecureIngressRoute extends Construct {
 
     // IngressRoute
     new IngressRoute(this, "ingress", {
-      metadata: {
+      metadata: omitBy(isNil, {
         name,
         namespace,
         ...props.metadata,
-        // annotations: {
-        //   "gethomepage.dev/enabled": "true",
-        //   "gethomepage.dev/name": "Planka",
-        //   "gethomepage.dev/description": "Project Management",
-        //   "gethomepage.dev/group": "Apps",
-        //   "gethomepage.dev/icon": "planka.png",
-        //   "gethomepage.dev/href": `https://${props.hosts[0]}`,
-        //   "gethomepage.dev/pod-selector": "app.kubernetes.io/name=planka",
-        // },
-      },
+      }),
       spec: {
         entryPoints: ["websecure"],
         routes: [
@@ -68,4 +67,22 @@ export class SecureIngressRoute extends Construct {
       },
     });
   }
+
+  static fromService = (
+    scope: Construct,
+    id: string,
+    service: Service,
+    props: SecureIngressRouteFromServiceProps,
+  ) => {
+    return new SecureIngressRoute(scope, id, {
+      ...props,
+      services: [
+        {
+          name: service.name,
+          port: IngressRouteSpecRoutesServicesPort.fromNumber(service.port),
+          kind: IngressRouteSpecRoutesServicesKind.SERVICE,
+        },
+      ],
+    });
+  };
 }

@@ -13,8 +13,6 @@ import {
 
 interface HAProxyChartProps extends ChartProps {
   readonly traefikServiceHost: string;
-  readonly traefikHttpPort?: number;
-  readonly traefikHttpsPort?: number;
 
   readonly nodes?: LabeledNode[];
 }
@@ -26,8 +24,6 @@ export class HAProxyChart extends Chart {
     const { nodes = [] } = props;
 
     const namespace = "haproxy";
-    const httpPort = props.traefikHttpPort ?? 80;
-    const httpsPort = props.traefikHttpsPort ?? 443;
 
     new Namespace(this, "namespace", {
       metadata: { name: namespace },
@@ -56,11 +52,18 @@ frontend https
     bind *:443
     default_backend traefik_https
 
+frontend ssh
+    bind *:2222
+    default_backend traefik_ssh
+
 backend traefik_http
-    server traefik ${props.traefikServiceHost.replace(/\.?$/, ".")}:${httpPort} check
+    server traefik ${props.traefikServiceHost.replace(/\.?$/, ".")}:80 check
 
 backend traefik_https
-    server traefik ${props.traefikServiceHost.replace(/\.?$/, ".")}:${httpsPort} check
+    server traefik ${props.traefikServiceHost.replace(/\.?$/, ".")}:443 check
+
+backend traefik_ssh
+    server traefik ${props.traefikServiceHost.replace(/\.?$/, ".")}:2222 check
 `,
       },
     });
@@ -87,6 +90,7 @@ backend traefik_https
           ports: [
             { number: 80, protocol: Protocol.TCP, name: "http" },
             { number: 443, protocol: Protocol.TCP, name: "https" },
+            { number: 2222, protocol: Protocol.TCP, name: "ssh" },
           ],
           volumeMounts: [
             {

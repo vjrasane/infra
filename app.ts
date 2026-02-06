@@ -34,6 +34,7 @@ import { HAProxyChart } from "./charts/haproxy";
 import { ImmichChart } from "./charts/immich";
 import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
 import { GiteaChart } from "./charts/gitea";
+import { PaperlessChart } from "./charts/paperless";
 
 const app = new App();
 
@@ -147,6 +148,10 @@ new GiteaChart(app, "gitea", {
   hosts: allSubdomains("gitea"),
   authentikUrl,
   resticRepository: giteaResticRepository,
+});
+new PaperlessChart(app, "paperless", {
+  hosts: [homeSubdomain("paperless")],
+  authentikUrl,
 });
 
 export default app;

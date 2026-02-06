@@ -98,6 +98,12 @@ export class TraefikChart extends BitwardenAuthTokenChart {
             },
           },
         },
+        ssh: {
+          port: 2222,
+          expose: { default: true },
+          exposedPort: 2222,
+          protocol: "TCP",
+        },
       },
       experimental: {
         plugins: {

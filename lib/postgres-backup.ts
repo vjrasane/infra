@@ -54,12 +54,7 @@ export class PostgresBackup extends Construct {
       "backup-volume",
       "backup-data",
     );
-    // const pgSecret = Secret.fromSecretName(
-    //   this,
-    //   "pg-secret",
-    //   postgresPasswordSecretName,
-    // );
-    const resticSecret = credentials.toSecret(this, "restic-secret");
+    const resticSecret = credentials.toSecret();
 
     // Daily backup CronJob
     // Init container: pg_dump to emptyDir

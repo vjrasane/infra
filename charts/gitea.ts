@@ -1,16 +1,20 @@
 import { Cron } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
 import { Construct } from "constructs";
+import { Actions } from "../imports/actions";
 import { Gitea } from "../imports/gitea";
 import {
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
+  IngressRouteTcp,
+  IngressRouteTcpSpecRoutesServicesPort,
 } from "../imports/traefik.io";
 import {
   CLOUD_PROVIDER_LABEL,
   labelExists,
   requiredNodeAffinity,
 } from "../lib/affinity";
+import { getHomeHost, getHomepageAnnotations } from "../lib/hosts";
 import { SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
 import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
@@ -31,8 +35,7 @@ export class GiteaChart extends BitwardenAuthTokenChart {
       metadata: { name: namespace },
     });
 
-    const secret = new BitwardenOrgSecret(this, "bw-oidc-secret", {
-      namespace,
+    const oidcSecret = new BitwardenOrgSecret(this, "bw-oidc-secret", {
       name: "gitea-oidc-secret",
       map: [
         {
@@ -46,12 +49,25 @@ export class GiteaChart extends BitwardenAuthTokenChart {
       ],
     });
 
-    const pvc = new LocalPathPvc(this, "data-pvc", {
-      namespace,
-    });
+    const registrationTokenSecret = new BitwardenOrgSecret(
+      this,
+      "registration-token",
+      {
+        name: "gitea-registration-token-secret",
+        map: [
+          {
+            bwSecretId: "70473ffc-636e-4825-bf3a-b3e800a8eb3f",
+            secretKeyName: "token",
+          },
+        ],
+      },
+    );
+
+    const pvc = new LocalPathPvc(this, "data-pvc");
+
+    const sshPort = 2222;
 
     new Gitea(this, "helm-chart", {
-      namespace,
       releaseName: "gitea",
       values: {
         postgresql: { enabled: false },
@@ -73,21 +89,39 @@ export class GiteaChart extends BitwardenAuthTokenChart {
           type: "Recreate",
         },
 
+        service: {
+          ssh: {
+            port: sshPort,
+          },
+        },
+
         gitea: {
           config: {
+            actions: {
+              ENABLED: "true",
+            },
+            repository: {
+              DEFAULT_PRIVATE: "true",
+              FORCE_PRIVATE: "true",
+            },
             service: {
               ALLOW_ONLY_EXTERNAL_REGISTRATION: "true",
               DISABLE_REGISTRATION: "true",
               ENABLE_BASIC_AUTHENTICATION: "false",
               ENABLE_PASSWORD_SIGNIN_FORM: "false",
+              ENABLE_PASSKEY_AUTHENTICATION: "false",
               REQUIRE_SIGNIN_VIEW: "true",
             },
+
             database: {
               DB_TYPE: "sqlite3",
             },
             server: {
               ROOT_URL: `https://${props.hosts[0]}/`,
               SSH_DOMAIN: props.hosts[0],
+              SSH_PORT: sshPort.toString(),
+              SSH_LISTEN_PORT: sshPort.toString(),
+              DISABLE_HTTP_GIT: "true",
             },
             packages: {
               ENABLED: "true",
@@ -111,7 +145,7 @@ export class GiteaChart extends BitwardenAuthTokenChart {
             {
               name: "authentik",
               provider: "openidConnect",
-              existingSecret: secret.name,
+              existingSecret: oidcSecret.name,
               autoDiscoverURL: `${props.authentikUrl}/application/o/gitea/.well-known/openid-configuration`,
               scopes: "openid email profile groups",
               groupClaimName: "groups",
@@ -124,8 +158,20 @@ export class GiteaChart extends BitwardenAuthTokenChart {
       },
     });
 
+    new Actions(this, "actions-runner", {
+      releaseName: "gitea-actions",
+      values: {
+        enabled: true,
+        existingSecret: registrationTokenSecret.name,
+        existingSecretKey: "token",
+        giteaRootURL: `https://${props.hosts[0]}`,
+        statefulset: {
+          replicas: 1,
+        },
+      },
+    });
+
     new SecureIngressRoute(this, "ingress-route", {
-      namespace,
       hosts: props.hosts,
       services: [
         {
@@ -135,30 +181,40 @@ export class GiteaChart extends BitwardenAuthTokenChart {
         },
       ],
       metadata: {
-        annotations: {
-          "gethomepage.dev/enabled": "true",
-          "gethomepage.dev/name": "Gitea",
-          "gethomepage.dev/description": "Git",
-          "gethomepage.dev/group": "Apps",
-          "gethomepage.dev/icon": "gitea.png",
-          "gethomepage.dev/href": `https://${props.hosts[0]}`,
-          "gethomepage.dev/pod-selector": "app.kubernetes.io/name=gitea",
-        },
+        annotations: getHomepageAnnotations("gitea", {
+          host: getHomeHost(props.hosts),
+        }),
+      },
+    });
+
+    new IngressRouteTcp(this, "ssh-ingress", {
+      metadata: { name: "gitea-ssh" },
+      spec: {
+        entryPoints: ["ssh"],
+        routes: [
+          {
+            match: "HostSNI(`*`)", // SSH has no SNI, so match all
+            services: [
+              {
+                name: "gitea-ssh",
+                port: IngressRouteTcpSpecRoutesServicesPort.fromNumber(sshPort),
+              },
+            ],
+          },
+        ],
       },
     });
 
     const credentials = new ResticCredentials(this, "restic-credentials", {
-      namespace,
       name: "gitea-restic-credentials", // pragma: allowlist secret
       accessKeyIdBwSecretId: "a46a4c87-a3cb-456f-84f2-b3e700f16f9d",
       accessKeySecretBwSecretId: "64cc6e3c-70fe-4b68-af44-b3e700f13ec9",
       resticPasswordBwSecretId: "8c07760e-5f05-44e6-930e-b3e700f4711e",
-    }).toSecret(this, "restic-credentials-secret");
+    }).toSecret();
 
-    const volume = pvc.toVolume(this, "pv");
+    const volume = pvc.toVolume();
 
     new ResticBackup(this, "restic-backup", {
-      namespace,
       name: "gitea-backup",
       repository: props.resticRepository,
       credentials,
@@ -168,7 +224,6 @@ export class GiteaChart extends BitwardenAuthTokenChart {
     });
 
     new ResticPrune(this, "restic-prune", {
-      namespace,
       name: "gitea-prune",
       repository: props.resticRepository,
       credentials,

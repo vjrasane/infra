@@ -61,7 +61,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
     const dataVolume = new LocalPathPvc(this, "data-pvc", {
       name: "postgres-data",
       namespace,
-    }).toVolume(this, "data-pv", "data-volume");
+    }).toVolume();
 
     // Headless service for StatefulSet (fixed name)
     const serviceName = "postgres";
@@ -249,7 +249,7 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       accessKeyIdBwSecretId: "cddf0c0b-52b1-4ca7-bdb5-b3e000f29516",
       accessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
       resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
-    });
+    }).toSecret();
 
     const hostName = "backup-psql";
     const backupVolume = Volume.fromEmptyDir(
@@ -262,7 +262,6 @@ export class PostgresChart extends BitwardenAuthTokenChart {
       "pg-secret-ref",
       credentialsSecret.name,
     );
-    const resticSecret = credentials.toSecret(this, "restic-secret-ref");
 
     // Daily backup CronJob (runs at 2 AM)
     // Init container: pg_dumpall to emptyDir
@@ -315,7 +314,7 @@ restic snapshots`,
           envVariables: {
             RESTIC_REPOSITORY: EnvValue.fromValue(props.resticRepository),
           },
-          envFrom: [Env.fromSecret(resticSecret)],
+          envFrom: [Env.fromSecret(credentials)],
           volumeMounts: [{ path: "/backups", volume: backupVolume }],
           securityContext: {
             ensureNonRoot: false,
@@ -354,7 +353,7 @@ ls -la /restore/`,
           envVariables: {
             RESTIC_REPOSITORY: EnvValue.fromValue(props.resticRepository),
           },
-          envFrom: [Env.fromSecret(resticSecret)],
+          envFrom: [Env.fromSecret(credentials)],
           volumeMounts: [{ path: "/restore", volume: restoreVolume }],
           securityContext: {
             ensureNonRoot: false,

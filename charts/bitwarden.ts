@@ -57,16 +57,17 @@ export abstract class BitwardenAuthTokenChart extends Chart {
 }
 
 interface BitwardenOrgSecretProps extends Partial<BitwardenSecretProps> {
-  readonly namespace: string;
-  readonly name: string;
+  readonly namespace?: string;
+  readonly name?: string;
   readonly secretName?: string;
   readonly map: Array<{ bwSecretId: string; secretKeyName: string }>;
 }
 
 export class BitwardenOrgSecret extends BitwardenSecret {
+  readonly secretName: string;
   constructor(scope: Construct, id: string, props: BitwardenOrgSecretProps) {
     const { namespace, name, map, ...extra } = props;
-    const secretName = props.secretName ?? name;
+    const secretName = props.secretName ?? name ?? id;
     super(scope, id, {
       metadata: {
         namespace,
@@ -83,5 +84,11 @@ export class BitwardenOrgSecret extends BitwardenSecret {
       },
       ...extra,
     });
+
+    this.secretName = secretName;
   }
+
+  toSecret = () => {
+    return Secret.fromSecretName(this, "secret", this.secretName);
+  };
 }

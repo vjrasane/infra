@@ -1,17 +1,18 @@
 import { Construct } from "constructs";
 import { Cron } from "cdk8s";
-import { CronJob, Env, EnvValue, ISecret, Secret, Volume } from "cdk8s-plus-28";
+import { CronJob, Env, EnvValue, ISecret, Volume } from "cdk8s-plus-28";
 import { BitwardenOrgSecret } from "../charts/bitwarden";
 
 interface ResticCredentialsProps {
-  readonly namespace: string;
-  readonly name: string;
+  readonly namespace?: string;
+  readonly name?: string;
   readonly accessKeyIdBwSecretId: string;
   readonly accessKeySecretBwSecretId: string;
   readonly resticPasswordBwSecretId: string;
 }
 
 export class ResticCredentials extends BitwardenOrgSecret {
+  static resticPasswordSecretKeyName = "RESTIC_PASSWORD";
   constructor(scope: Construct, id: string, props: ResticCredentialsProps) {
     super(scope, id, {
       ...props,
@@ -26,19 +27,15 @@ export class ResticCredentials extends BitwardenOrgSecret {
         },
         {
           bwSecretId: props.resticPasswordBwSecretId,
-          secretKeyName: "RESTIC_PASSWORD",
+          secretKeyName: ResticCredentials.resticPasswordSecretKeyName,
         },
       ],
     });
   }
-
-  toSecret = (scope: Construct, id: string) => {
-    return Secret.fromSecretName(scope, id, this.name);
-  };
 }
 
 interface ResticBackupProps {
-  readonly namespace: string;
+  readonly namespace?: string;
   readonly name: string;
   readonly repository: string;
   readonly credentials: ISecret;
@@ -86,7 +83,7 @@ restic snapshots`,
 }
 
 interface ResticPruneProps {
-  readonly namespace: string;
+  readonly namespace?: string;
   readonly name: string;
   readonly repository: string;
   readonly credentials: ISecret;
