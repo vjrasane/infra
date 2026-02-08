@@ -35,6 +35,7 @@ import { ImmichChart } from "./charts/immich";
 import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
 import { GiteaChart } from "./charts/gitea";
 import { PaperlessChart } from "./charts/paperless";
+import { N8nChart } from "./charts/n8n";
 
 const app = new App();
 
@@ -151,6 +152,10 @@ new GiteaChart(app, "gitea", {
 });
 new PaperlessChart(app, "paperless", {
   hosts: [homeSubdomain("paperless")],
+  authentikUrl,
+});
+new N8nChart(app, "n8n", {
+  hosts: allSubdomains("n8n"),
   authentikUrl,
 });
 

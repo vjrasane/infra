@@ -28,6 +28,8 @@
     just
     samba
     bws
+    sqlite
+    cook-cli
   ];
 
   scripts.b2.exec = "backblaze-b2 $@";
