@@ -156,7 +156,6 @@ new PaperlessChart(app, "paperless", {
 });
 new N8nChart(app, "n8n", {
   hosts: allSubdomains("n8n"),
-  authentikUrl,
 });
 
 export default app;

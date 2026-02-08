@@ -36,7 +36,3 @@ Explore [the docs](https://cooklang.org/cli/help/), which describe how to use Co
 ### Customize your instance
 
 Add aisle configuration information to the `config/aisle.conf` file to tailor your shopping list experience.
-
-
-
-

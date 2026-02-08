@@ -27,9 +27,9 @@ export function getCloudHost(hosts: string[]): string | undefined {
 
 export function getPublicSecurityMiddlewares(
   hosts: string[],
-): Array<{ name: string; namespace: string }> | undefined {
+): Array<{ name: string; namespace: string }> {
   if (!hosts.some(isPublicHost)) {
-    return undefined;
+    return [];
   }
   return [crowdsecMiddleware, ...getSecurityMiddlewares()];
 }

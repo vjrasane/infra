@@ -1,4 +1,4 @@
-import { Size } from "cdk8s";
+import { App, Size } from "cdk8s";
 import {
   Cpu,
   Deployment,
@@ -6,26 +6,36 @@ import {
   Env,
   EnvValue,
   Namespace,
-  Volume,
 } from "cdk8s-plus-28";
 import { Construct } from "constructs";
-import { SecureIngressRoute } from "../lib/ingress";
+import {
+  IngressRouteSpecRoutesKind,
+  IngressRouteSpecRoutesServicesPort,
+} from "../imports/traefik.io";
+import {
+  cloudSubdomain,
+  getPublicSecurityMiddlewares,
+  homeSubdomain,
+} from "../lib/hosts";
+import { AuthMiddleware, SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface N8nChartProps {
-  readonly hosts: string[];
-  readonly authentikUrl: string;
+  readonly homeHost: string;
+  readonly webhookHost: string;
 }
 
 export class N8nChart extends BitwardenAuthTokenChart {
   constructor(scope: Construct, id: string, props: N8nChartProps) {
     const namespace = "n8n";
+    const { homeHost, webhookHost } = props;
     super(scope, id, { namespace, ...props });
 
     new Namespace(this, "namespace", { metadata: { name: namespace } });
 
     const dataVolume = new LocalPathPvc(this, "data-pvc").toVolume();
+    const workVolume = new LocalPathPvc(this, "work-pvc").toVolume();
 
     const encryptionKey = new BitwardenOrgSecret(this, "encryption-key", {
       name: "n8n-encryption-key",
@@ -37,77 +47,30 @@ export class N8nChart extends BitwardenAuthTokenChart {
       ],
     }).toSecret();
 
-    const oidc = new BitwardenOrgSecret(this, "oidc-secret", {
-      name: "n8n-oidc",
-      map: [
-        {
-          bwSecretId: "5c896b9a-c8cf-48c7-bfa4-b3eb00c6deb7",
-          secretKeyName: "OIDC_CLIENT_ID",
-        },
-        {
-          bwSecretId: "650fb4fb-e17d-463a-85aa-b3eb00c6ec63",
-          secretKeyName: "OIDC_CLIENT_SECRET",
-        },
-      ],
-    }).toSecret();
-
-    const hooksVolume = Volume.fromEmptyDir(this, "hooks-volume", "oidc-hooks");
-
     const n8n = new Deployment(this, "deployment", {
       replicas: 1,
       strategy: DeploymentStrategy.recreate(),
-      volumes: [dataVolume, hooksVolume],
-      initContainers: [
-        {
-          image: "curlimages/curl:latest",
-          command: ["/bin/sh", "-c"],
-          args: [
-            "curl -fsSL https://raw.githubusercontent.com/cweagans/n8n-oidc/$COMMIT_SHA/hooks.js -o /hooks/hooks.js",
-          ],
-          envVariables: {
-            COMMIT_SHA: EnvValue.fromValue(
-              "7fd7a64b7fc94cd7b1bd38699e2a4bbbe0d69561",
-            ),
-          },
-          volumeMounts: [{ path: "/hooks", volume: hooksVolume }],
-          securityContext: {
-            ensureNonRoot: false,
-            readOnlyRootFilesystem: false,
-          },
-        },
-      ],
+      volumes: [dataVolume, workVolume],
       containers: [
         {
           image: "docker.n8n.io/n8nio/n8n:latest",
           ports: [{ number: 5678 }],
           envVariables: {
-            N8N_HOST: EnvValue.fromValue(props.hosts[0]),
+            N8N_HOST: EnvValue.fromValue(homeHost),
+            N8N_EDITOR_BASE_URL: EnvValue.fromValue(`https://${homeHost}`),
             N8N_PROTOCOL: EnvValue.fromValue("https"),
             N8N_TRUST_PROXY: EnvValue.fromValue("true"),
             N8N_PROXY_HOPS: EnvValue.fromValue("1"),
-            N8N_LOG_LEVEL: EnvValue.fromValue("debug"),
-            WEBHOOK_URL: EnvValue.fromValue(`https://${props.hosts[0]}/`),
+            N8N_LOG_LEVEL: EnvValue.fromValue("info"),
+            N8N_RESTRICT_FILE_ACCESS_TO: EnvValue.fromValue("/data/work"),
+            WEBHOOK_URL: EnvValue.fromValue(`https://${webhookHost}/`),
             DB_TYPE: EnvValue.fromValue("sqlite"),
-
-            // OIDC hooks configuration
-            EXTERNAL_HOOK_FILES: EnvValue.fromValue("/oidc/hooks.js"),
-            EXTERNAL_FRONTEND_HOOKS_URLS: EnvValue.fromValue(
-              "/assets/oidc-frontend-hook.js",
-            ),
-            N8N_ADDITIONAL_NON_UI_ROUTES: EnvValue.fromValue("auth"),
-
-            // OIDC provider settings
-            OIDC_ISSUER_URL: EnvValue.fromValue(
-              `${props.authentikUrl}/application/o/n8n/`,
-            ),
-            OIDC_REDIRECT_URI: EnvValue.fromValue(
-              `https://${props.hosts[0]}/auth/oidc/callback`,
-            ),
+            NODES_EXCLUDE: EnvValue.fromValue("[]"),
           },
-          envFrom: [Env.fromSecret(encryptionKey), Env.fromSecret(oidc)],
+          envFrom: [Env.fromSecret(encryptionKey)],
           volumeMounts: [
             { path: "/home/node/.n8n", volume: dataVolume },
-            { path: "/oidc", volume: hooksVolume },
+            { path: "/data/work", volume: workVolume },
           ],
           securityContext: {
             ensureNonRoot: false,
@@ -121,8 +84,48 @@ export class N8nChart extends BitwardenAuthTokenChart {
       ],
     }).exposeViaService();
 
-    SecureIngressRoute.fromService(this, "ingress", n8n, {
-      hosts: props.hosts,
+    const authMiddleware = new AuthMiddleware(this, "auth-middleware", {
+      name: "n8n-auth",
+    });
+
+    SecureIngressRoute.fromService(this, "home-ingress", n8n, {
+      name: "n8n-home",
+      hosts: [homeHost],
+      middlewares: [
+        ...getPublicSecurityMiddlewares([homeHost]),
+        {
+          name: authMiddleware.name,
+          namespace,
+        },
+      ],
+    });
+
+    new SecureIngressRoute(this, "webhook-ingress", {
+      name: "n8n-webhooks",
+      hosts: [webhookHost],
+      routes: [
+        {
+          match: `Host(\`${webhookHost}\`) && (PathPrefix(\`/webhook\`) || PathPrefix(\`/webhook-test\`))`,
+          kind: IngressRouteSpecRoutesKind.RULE,
+          middlewares: getPublicSecurityMiddlewares([webhookHost]),
+          services: [
+            {
+              name: n8n.name,
+              port: IngressRouteSpecRoutesServicesPort.fromNumber(n8n.port),
+            },
+          ],
+        },
+      ],
     });
   }
+}
+
+if (require.main === module) {
+  const app = new App();
+  new N8nChart(app, "n8n", {
+    homeHost: homeSubdomain("n8n"),
+    webhookHost: cloudSubdomain("n8n"),
+  });
+
+  app.synth();
 }

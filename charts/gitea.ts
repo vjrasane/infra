@@ -173,12 +173,14 @@ export class GiteaChart extends BitwardenAuthTokenChart {
 
     new SecureIngressRoute(this, "ingress-route", {
       hosts: props.hosts,
-      services: [
-        {
-          name: "gitea-http",
-          port: IngressRouteSpecRoutesServicesPort.fromNumber(3000),
-          kind: IngressRouteSpecRoutesServicesKind.SERVICE,
-        },
+      routes: [
+        SecureIngressRoute.createRoute(props.hosts, [
+          {
+            name: "gitea-http",
+            port: IngressRouteSpecRoutesServicesPort.fromNumber(3000),
+            kind: IngressRouteSpecRoutesServicesKind.SERVICE,
+          },
+        ]),
       ],
       metadata: {
         annotations: getHomepageAnnotations("gitea", {

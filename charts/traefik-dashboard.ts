@@ -86,8 +86,6 @@ export class TraefikDashboardChart extends BitwardenAuthTokenChart {
     });
     new IngressRoute(this, "ingress", {
       metadata: {
-        name: "traefik-dashboard",
-        namespace,
         annotations: {
           "gethomepage.dev/enabled": "true",
           "gethomepage.dev/name": "Traefik",

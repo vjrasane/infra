@@ -9,11 +9,22 @@ download:
 headlamp-token:
     @kubectl get secret headlamp-admin-token -n headlamp -o jsonpath='{.data.token}' | base64 -d && echo
 
-synth:
-    @npm run synth
+# Synth a single chart or all charts
+synth chart='':
+    @if [ -z "{{chart}}" ]; then \
+        cdk8s synth; \
+    else \
+        cdk8s synth --app "npx ts-node charts/{{chart}}.ts"; \
+    fi
 
-apply: synth
-    @kubectl apply -f dist/
+# Apply a single chart or all charts
+apply chart='': (synth chart)
+    @if [ -z "{{chart}}" ]; then \
+        kubectl apply -f dist/; \
+    else \
+        kubectl apply -f dist/{{chart}}.k8s.yaml; \
+    fi
+
 
 hooks:
     @devenv tasks run devenv:git-hooks:run
