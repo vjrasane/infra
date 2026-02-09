@@ -1,4 +1,4 @@
-import { ChartProps, Cron, Size } from "cdk8s";
+import { App, ChartProps, Cron, Size } from "cdk8s";
 import {
   Cpu,
   CronJob,
@@ -10,18 +10,22 @@ import {
   Volume,
 } from "cdk8s-plus-28";
 import { Construct } from "constructs";
-import { getHomeHost, getHomepageAnnotations } from "../lib/hosts";
+import {
+  authentikUrl,
+  getHomeHost,
+  getHomepageAnnotations,
+  homeSubdomain,
+} from "../lib/hosts";
 import { SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
-import { ResticCredentials } from "../lib/restic";
+import { ResticCredentials, ResticRepo, TEBI_RESTIC_REPO } from "../lib/restic";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface PaperlessChartProps extends ChartProps {
   authentikUrl: string;
   hosts: string[];
+  resticRepo: ResticRepo;
 }
-
-const PAPERLESS_BACKUP_RESTIC_REPO = "s3:s3.tebi.io/karkkinet-backups";
 
 export class PaperlessChart extends BitwardenAuthTokenChart {
   constructor(scope: Construct, id: string, props: PaperlessChartProps) {
@@ -131,9 +135,7 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
 
     const credentials = new ResticCredentials(this, "restic-credentials", {
       name: "paperless-restic-credentials",
-      accessKeyIdBwSecretId: "97d3b928-04a6-4105-accd-b3e90100d52f",
-      accessKeySecretBwSecretId: "c18331b8-cab4-4b41-8c4b-b3e90100ef23",
-      resticPasswordBwSecretId: "465fa662-5061-4979-9c99-b3e901012dfa",
+      repo: props.resticRepo,
     }).toSecret();
 
     const backupVolume = Volume.fromEmptyDir(
@@ -208,7 +210,7 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
             restic snapshots`,
           ],
           envVariables: {
-            RESTIC_REPOSITORY: EnvValue.fromValue(PAPERLESS_BACKUP_RESTIC_REPO),
+            RESTIC_REPOSITORY: EnvValue.fromValue(props.resticRepo.url),
           },
           envFrom: [Env.fromSecret(credentials)],
           volumeMounts: [{ path: "/backups", volume: backupVolume }],
@@ -227,4 +229,15 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
       ],
     });
   }
+}
+
+if (require.main === module) {
+  const app = new App();
+  new PaperlessChart(app, "paperless", {
+    authentikUrl,
+    hosts: [homeSubdomain("paperless")],
+    resticRepo: TEBI_RESTIC_REPO,
+  });
+
+  app.synth();
 }

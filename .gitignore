@@ -14,6 +14,7 @@ node_modules/
 .devenv/
 .direnv/
 .devenv.flake.nix
+.pre-commit-config.yaml
 
 # Build artifacts
 *.d.ts

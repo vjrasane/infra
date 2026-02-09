@@ -5,6 +5,7 @@ import {
   BitwardenSecret,
   BitwardenSecretProps,
 } from "../imports/k8s.bitwarden.com";
+import { isNil, omitBy } from "lodash/fp";
 
 export class BitwardenSecretsManagerChart extends Chart {
   constructor(scope: Construct, id: string, props: ChartProps = {}) {
@@ -66,13 +67,14 @@ interface BitwardenOrgSecretProps extends Partial<BitwardenSecretProps> {
 export class BitwardenOrgSecret extends BitwardenSecret {
   readonly secretName: string;
   constructor(scope: Construct, id: string, props: BitwardenOrgSecretProps) {
-    const { namespace, name, map, ...extra } = props;
+    const { namespace, map, ...extra } = props;
+    const name = props.name ?? namespace;
     const secretName = props.secretName ?? name ?? id;
     super(scope, id, {
-      metadata: {
+      metadata: omitBy(isNil, {
         namespace,
         name,
-      },
+      }),
       spec: {
         secretName,
         organizationId: "60ceb718-168e-4c92-acbc-b2dc012f1217",

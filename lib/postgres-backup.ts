@@ -1,11 +1,11 @@
 import { Construct } from "constructs";
 import { Cron } from "cdk8s";
 import { CronJob, Env, EnvValue, Volume } from "cdk8s-plus-28";
-import { ResticCredentials } from "./restic";
+import { CLOUDFLARE_RESTIC_REPO, ResticCredentials } from "./restic";
 import { PostgresCredentials } from "./postgres";
 
 interface PostgresBackupProps {
-  readonly namespace: string;
+  readonly namespace?: string;
   readonly name?: string;
   /** PostgreSQL service hostname */
   readonly postgresHost: EnvValue;
@@ -19,9 +19,6 @@ interface PostgresBackupProps {
   readonly keepWeekly?: number;
   readonly keepMonthly?: number;
 }
-
-const POSTGRES_BACKUP_RESTIC_REPO =
-  "s3:485029190166e70f3358ab9fc87c6b4f.r2.cloudflarestorage.com/karkkinet-psql-backups";
 
 export class PostgresBackup extends Construct {
   constructor(scope: Construct, id: string, props: PostgresBackupProps) {
@@ -37,15 +34,14 @@ export class PostgresBackup extends Construct {
       keepMonthly = 6,
     } = props;
 
-    const name = props.name ?? namespace + "-postgres-backup";
+    let name;
+    if (props.name) name = props.name;
+    else if (namespace) name = namespace + "-postgres-backup";
 
     const resticCredentialsName = `${name}-restic-credentials`; // pragma: allowlist secret
     const credentials = new ResticCredentials(this, "restic-credentials", {
-      namespace,
       name: resticCredentialsName,
-      accessKeyIdBwSecretId: "cddf0c0b-52b1-4ca7-bdb5-b3e000f29516",
-      accessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
-      resticPasswordBwSecretId: "8fb3f8c0-41a0-464c-a486-b3bf0130ad72",
+      repo: CLOUDFLARE_RESTIC_REPO,
     });
 
     const hostName = postgresHost;
@@ -102,7 +98,7 @@ echo "Done. Current snapshots:"
 restic snapshots`,
           ],
           envVariables: {
-            RESTIC_REPOSITORY: EnvValue.fromValue(POSTGRES_BACKUP_RESTIC_REPO),
+            RESTIC_REPOSITORY: EnvValue.fromValue(credentials.repoUrl),
           },
           envFrom: [Env.fromSecret(resticSecret)],
           volumeMounts: [{ path: "/backups", volume: backupVolume }],
@@ -141,7 +137,7 @@ echo "Restore complete. Available backups:"
 ls -la /restore/backups/`,
           ],
           envVariables: {
-            RESTIC_REPOSITORY: EnvValue.fromValue(POSTGRES_BACKUP_RESTIC_REPO),
+            RESTIC_REPOSITORY: EnvValue.fromValue(credentials.repoUrl),
           },
           envFrom: [Env.fromSecret(resticSecret)],
           volumeMounts: [{ path: "/restore", volume: restoreVolume }],

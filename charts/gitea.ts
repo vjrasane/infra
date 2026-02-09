@@ -1,4 +1,4 @@
-import { Cron } from "cdk8s";
+import { App, Cron } from "cdk8s";
 import { Namespace } from "cdk8s-plus-28";
 import { Construct } from "constructs";
 import { Actions } from "../imports/actions";
@@ -14,16 +14,27 @@ import {
   labelExists,
   requiredNodeAffinity,
 } from "../lib/affinity";
-import { getHomeHost, getHomepageAnnotations } from "../lib/hosts";
+import {
+  allSubdomains,
+  authentikUrl,
+  getHomeHost,
+  getHomepageAnnotations,
+} from "../lib/hosts";
 import { SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
-import { ResticBackup, ResticCredentials, ResticPrune } from "../lib/restic";
+import {
+  createSqliteVacuum,
+  ORACLE_RESTIC_REPO,
+  ResticBackup,
+  ResticCredentials,
+  ResticRepo,
+} from "../lib/restic";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface GiteaChartProps {
   readonly hosts: string[];
   readonly authentikUrl: string;
-  readonly resticRepository: string;
+  readonly resticRepo: ResticRepo;
 }
 
 export class GiteaChart extends BitwardenAuthTokenChart {
@@ -63,7 +74,9 @@ export class GiteaChart extends BitwardenAuthTokenChart {
       },
     );
 
-    const pvc = new LocalPathPvc(this, "data-pvc");
+    const pvc = new LocalPathPvc(this, "data-pvc", {
+      name: "gitea-local-path-pvc", // do not change
+    });
 
     const sshPort = 2222;
 
@@ -209,28 +222,33 @@ export class GiteaChart extends BitwardenAuthTokenChart {
 
     const credentials = new ResticCredentials(this, "restic-credentials", {
       name: "gitea-restic-credentials", // pragma: allowlist secret
-      accessKeyIdBwSecretId: "a46a4c87-a3cb-456f-84f2-b3e700f16f9d",
-      accessKeySecretBwSecretId: "64cc6e3c-70fe-4b68-af44-b3e700f13ec9",
-      resticPasswordBwSecretId: "8c07760e-5f05-44e6-930e-b3e700f4711e",
-    }).toSecret();
+      repo: props.resticRepo,
+    });
 
-    const volume = pvc.toVolume();
+    const dataVolume = pvc.toVolume();
 
     new ResticBackup(this, "restic-backup", {
-      name: "gitea-backup",
-      repository: props.resticRepository,
-      credentials,
-      hostName: "gitea",
-      volume,
       schedule: Cron.schedule({ minute: "0", hour: "4" }),
-    });
-
-    new ResticPrune(this, "restic-prune", {
-      name: "gitea-prune",
-      repository: props.resticRepository,
-      credentials,
       hostName: "gitea",
-      schedule: Cron.schedule({ minute: "0", hour: "4", day: "1" }),
+      initContainers: [
+        createSqliteVacuum("/data/gitea.db", "/data/gitea-backup.db", {
+          path: "/data",
+          volume: dataVolume,
+        }),
+      ],
+      volume: dataVolume,
+      credentials,
     });
   }
+}
+
+if (require.main === module) {
+  const app = new App();
+  new GiteaChart(app, "gitea", {
+    hosts: allSubdomains("gitea"),
+    authentikUrl,
+    resticRepo: ORACLE_RESTIC_REPO,
+  });
+
+  app.synth();
 }

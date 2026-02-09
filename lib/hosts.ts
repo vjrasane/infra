@@ -78,3 +78,7 @@ export const getHomepageAnnotations = (
     "gethomepage.dev/pod-selector": selector,
   };
 };
+
+export const authentikDomain = cloudSubdomain("auth");
+
+export const authentikUrl = `https://${authentikDomain}`;

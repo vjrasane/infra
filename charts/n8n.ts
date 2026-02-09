@@ -1,4 +1,4 @@
-import { App, Size } from "cdk8s";
+import { App, Cron, Size } from "cdk8s";
 import {
   Cpu,
   Deployment,
@@ -6,6 +6,7 @@ import {
   Env,
   EnvValue,
   Namespace,
+  Volume,
 } from "cdk8s-plus-28";
 import { Construct } from "constructs";
 import {
@@ -19,11 +20,19 @@ import {
 } from "../lib/hosts";
 import { AuthMiddleware, SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
+import {
+  FILEBASE_RESTIC_REPO,
+  ResticBackup,
+  ResticCredentials,
+  ResticRepo,
+  createSqliteVacuum,
+} from "../lib/restic";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface N8nChartProps {
   readonly editorHosts: string[];
   readonly webhookHost: string;
+  readonly resticRepo: ResticRepo;
 }
 
 export class N8nChart extends BitwardenAuthTokenChart {
@@ -65,6 +74,7 @@ export class N8nChart extends BitwardenAuthTokenChart {
             N8N_PROXY_HOPS: EnvValue.fromValue("1"),
             N8N_LOG_LEVEL: EnvValue.fromValue("info"),
             N8N_RESTRICT_FILE_ACCESS_TO: EnvValue.fromValue("/data/work"),
+            NODE_FUNCTION_ALLOW_BUILTIN: EnvValue.fromValue("*"),
             WEBHOOK_URL: EnvValue.fromValue(`https://${webhookHost}/`),
             DB_TYPE: EnvValue.fromValue("sqlite"),
             NODES_EXCLUDE: EnvValue.fromValue("[]"),
@@ -119,6 +129,32 @@ export class N8nChart extends BitwardenAuthTokenChart {
         },
       ],
     });
+
+    const credentials = new ResticCredentials(this, "restic-repo", {
+      name: "n8n-restic-credentials",
+      repo: props.resticRepo,
+    });
+
+    const backupVolume = Volume.fromEmptyDir(
+      this,
+      "backup-volume",
+      "backup-data",
+    );
+    new ResticBackup(this, "backup", {
+      schedule: Cron.schedule({ minute: "0", hour: "1" }),
+      hostName: "n8n",
+      volume: backupVolume,
+      credentials,
+      initContainers: [
+        createSqliteVacuum(
+          "/home/node/.n8n/database.sqlite",
+          "/backup/database.sqlite",
+          { path: "/home/node/.n8n", volume: dataVolume, readOnly: true },
+          { path: "/backup", volume: backupVolume },
+        ),
+      ],
+      prune: true,
+    });
   }
 }
 
@@ -127,6 +163,7 @@ if (require.main === module) {
   new N8nChart(app, "n8n", {
     editorHosts: [cloudSubdomain("n8n"), homeSubdomain("n8n")],
     webhookHost: cloudSubdomain("n8n"),
+    resticRepo: FILEBASE_RESTIC_REPO,
   });
 
   app.synth();

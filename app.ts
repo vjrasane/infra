@@ -33,9 +33,6 @@ import { CrowdSecChart } from "./charts/crowdsec";
 import { HAProxyChart } from "./charts/haproxy";
 import { ImmichChart } from "./charts/immich";
 import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
-import { GiteaChart } from "./charts/gitea";
-import { PaperlessChart } from "./charts/paperless";
-import { N8nChart } from "./charts/n8n";
 
 const app = new App();
 
@@ -143,15 +140,6 @@ new ImmichChart(app, "immich", {
   hosts: allSubdomains("immich"),
   clusterIssuerName,
   resticRepository: psqlResticRepository,
-});
-new GiteaChart(app, "gitea", {
-  hosts: allSubdomains("gitea"),
-  authentikUrl,
-  resticRepository: giteaResticRepository,
-});
-new PaperlessChart(app, "paperless", {
-  hosts: [homeSubdomain("paperless")],
-  authentikUrl,
 });
 
 export default app;
