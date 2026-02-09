@@ -9,6 +9,7 @@ import {
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
+import { CLUSTER_ISSUER_NAME } from "../lib/ingress";
 import { LOCAL_PATH_STORAGE_CLASS_NAME } from "../lib/local-path";
 import { PostgresCredentials } from "../lib/postgres";
 import { PostgresBackup } from "../lib/postgres-backup";
@@ -16,7 +17,6 @@ import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface AuthentikChartProps extends ChartProps {
   readonly hosts: string[];
-  readonly clusterIssuerName: string;
   readonly resticRepository: string;
 }
 
@@ -74,6 +74,10 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
           ],
           env: [
             {
+              name: "AUTHENTIK_HOST",
+              value: `https://${props.hosts[0]}`,
+            },
+            {
               name: "AUTHENTIK_POSTGRESQL__PASSWORD",
               valueFrom: dbCredentials.password.valueFrom,
             },
@@ -125,7 +129,7 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       spec: {
         secretName: certSecretName,
         issuerRef: {
-          name: props.clusterIssuerName,
+          name: CLUSTER_ISSUER_NAME,
           kind: "ClusterIssuer",
         },
         dnsNames: props.hosts,

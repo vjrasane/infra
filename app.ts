@@ -95,7 +95,6 @@ const authentikDomain = cloudSubdomain("auth");
 const authentikUrl = `https://${authentikDomain}`;
 new AuthentikChart(app, "authentik", {
   hosts: [authentikDomain],
-  clusterIssuerName,
   resticRepository: psqlResticRepository,
 });
 new PlankaChart(app, "planka", {
@@ -153,9 +152,6 @@ new GiteaChart(app, "gitea", {
 new PaperlessChart(app, "paperless", {
   hosts: [homeSubdomain("paperless")],
   authentikUrl,
-});
-new N8nChart(app, "n8n", {
-  hosts: allSubdomains("n8n"),
 });
 
 export default app;
