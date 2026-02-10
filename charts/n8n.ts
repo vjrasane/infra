@@ -65,6 +65,8 @@ export class N8nChart extends BitwardenAuthTokenChart {
           image: "docker.n8n.io/n8nio/n8n:latest",
           ports: [{ number: 5678 }],
           envVariables: {
+            TZ: EnvValue.fromValue("Europe/Helsinki"),
+            GENERIC_TIMEZONE: EnvValue.fromValue("Europe/Helsinki"),
             N8N_HOST: EnvValue.fromValue(editorHosts[0]),
             N8N_EDITOR_BASE_URL: EnvValue.fromValue(
               `https://${editorHosts[0]}`,
@@ -152,6 +154,25 @@ export class N8nChart extends BitwardenAuthTokenChart {
           { path: "/home/node/.n8n", volume: dataVolume, readOnly: true },
           { path: "/backup", volume: backupVolume },
         ),
+        // {
+        //   image: "docker.n8n.io/n8nio/n8n:latest",
+        //   command: ["/bin/sh", "-c"],
+        //   args: [
+        //     "mkdir -p /backup/workflows /backup/credentials && n8n export:workflow --all --output=/backup/workflows/ && n8n export:credentials --all --output=/backup/credentials/",
+        //   ],
+        //   envVariables: {
+        //     DB_TYPE: EnvValue.fromValue("sqlite"),
+        //   },
+        //   envFrom: [Env.fromSecret(encryptionKey)],
+        //   volumeMounts: [
+        //     { path: "/home/node/.n8n", volume: dataVolume, readOnly: true },
+        //     { path: "/backup", volume: backupVolume },
+        //   ],
+        //   securityContext: {
+        //     ensureNonRoot: false,
+        //     readOnlyRootFilesystem: false,
+        //   },
+        // },
       ],
       prune: true,
     });
