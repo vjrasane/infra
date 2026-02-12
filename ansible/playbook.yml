@@ -92,6 +92,15 @@
           --write-kubeconfig-mode 644
       when: not k3s_installed.stat.exists
 
+    - name: Bind k3s to Tailscale
+      copy:
+        dest: /etc/systemd/system/k3s.service.d/tailscale.conf
+        content: |
+          [Unit]
+          BindsTo=tailscaled.service
+          After=tailscaled.service
+      notify: Restart k3s
+
     - name: Get k3s token
       slurp:
         src: /var/lib/rancher/k3s/server/node-token
@@ -100,6 +109,13 @@
     - name: Set k3s token fact
       set_fact:
         k3s_token: "{{ k3s_token_file.content | b64decode | trim }}"
+
+  handlers:
+    - name: Restart k3s
+      systemd:
+        name: k3s
+        state: restarted
+        daemon_reload: yes
 
 - name: Join k3s cluster
   hosts: k3s_servers
@@ -147,6 +163,22 @@
           --write-kubeconfig-mode 644
       when: not k3s_installed.stat.exists
 
+    - name: Bind k3s to Tailscale
+      copy:
+        dest: /etc/systemd/system/k3s.service.d/tailscale.conf
+        content: |
+          [Unit]
+          BindsTo=tailscaled.service
+          After=tailscaled.service
+      notify: Restart k3s
+
+  handlers:
+    - name: Restart k3s
+      systemd:
+        name: k3s
+        state: restarted
+        daemon_reload: yes
+
 - name: Join k3s cluster as agent
   hosts: k3s_agents
   become: yes
@@ -184,6 +216,22 @@
           --flannel-iface tailscale0 \
           {{ node_labels | default([]) | map('regex_replace', '^', '--node-label ') | join(' ') }}
       when: not k3s_installed.stat.exists
+
+    - name: Bind k3s-agent to Tailscale
+      copy:
+        dest: /etc/systemd/system/k3s-agent.service.d/tailscale.conf
+        content: |
+          [Unit]
+          BindsTo=tailscaled.service
+          After=tailscaled.service
+      notify: Restart k3s-agent
+
+  handlers:
+    - name: Restart k3s-agent
+      systemd:
+        name: k3s-agent
+        state: restarted
+        daemon_reload: yes
 
 - name: Configure firewall for metrics ports
   hosts: k3s

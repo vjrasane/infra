@@ -56,6 +56,24 @@ export class N8nChart extends BitwardenAuthTokenChart {
       ],
     }).toSecret();
 
+    const listonicCredentials = new BitwardenOrgSecret(
+      this,
+      "listonic-credentials",
+      {
+        name: "n8n-listonic-credentials",
+        map: [
+          {
+            bwSecretId: "9a72fd3e-0f05-4ed7-b8ec-b3ef00789198",
+            secretKeyName: "LISTONIC_EMAIL",
+          },
+          {
+            bwSecretId: "4d8d13d2-e697-46c8-93a0-b3ef0078b867",
+            secretKeyName: "LISTONIC_PASSWORD",
+          },
+        ],
+      },
+    ).toSecret();
+
     const n8n = new Deployment(this, "deployment", {
       replicas: 1,
       strategy: DeploymentStrategy.recreate(),
@@ -74,6 +92,7 @@ export class N8nChart extends BitwardenAuthTokenChart {
             N8N_PROTOCOL: EnvValue.fromValue("https"),
             N8N_TRUST_PROXY: EnvValue.fromValue("true"),
             N8N_PROXY_HOPS: EnvValue.fromValue("1"),
+            N8N_BLOCK_ENV_ACCESS_IN_NODE: EnvValue.fromValue("false"),
             N8N_LOG_LEVEL: EnvValue.fromValue("info"),
             N8N_RESTRICT_FILE_ACCESS_TO: EnvValue.fromValue("/data/work"),
             NODE_FUNCTION_ALLOW_BUILTIN: EnvValue.fromValue("*"),
@@ -81,7 +100,10 @@ export class N8nChart extends BitwardenAuthTokenChart {
             DB_TYPE: EnvValue.fromValue("sqlite"),
             NODES_EXCLUDE: EnvValue.fromValue("[]"),
           },
-          envFrom: [Env.fromSecret(encryptionKey)],
+          envFrom: [
+            Env.fromSecret(encryptionKey),
+            Env.fromSecret(listonicCredentials),
+          ],
           volumeMounts: [
             { path: "/home/node/.n8n", volume: dataVolume },
             { path: "/data/work", volume: workVolume },
@@ -119,7 +141,8 @@ export class N8nChart extends BitwardenAuthTokenChart {
       hosts: [webhookHost],
       routes: [
         {
-          match: `Host(\`${webhookHost}\`) && (PathPrefix(\`/webhook\`) || PathPrefix(\`/webhook-test\`))`,
+          match: `Host(\`${webhookHost}\`) && (PathPrefix(\`/webhook\`) ||
+  PathPrefix(\`/webhook-test\`) || PathPrefix(\`/api\`))`,
           kind: IngressRouteSpecRoutesKind.RULE,
           middlewares: getPublicSecurityMiddlewares([webhookHost]),
           services: [

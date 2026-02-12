@@ -32,6 +32,7 @@ import { LokiChart } from "./charts/loki";
 import { CrowdSecChart } from "./charts/crowdsec";
 import { HAProxyChart } from "./charts/haproxy";
 import { ImmichChart } from "./charts/immich";
+import { NtfyChart } from "./charts/ntfy";
 import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
 
 const app = new App();
@@ -140,6 +141,10 @@ new ImmichChart(app, "immich", {
   hosts: allSubdomains("immich"),
   clusterIssuerName,
   resticRepository: psqlResticRepository,
+});
+
+new NtfyChart(app, "ntfy", {
+  hosts: [homeSubdomain("ntfy")],
 });
 
 export default app;
