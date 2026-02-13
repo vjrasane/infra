@@ -75,6 +75,12 @@ export class N8nChart extends BitwardenAuthTokenChart {
     ).toSecret();
 
     const n8n = new Deployment(this, "deployment", {
+      metadata: {
+        annotations: {
+          "keel.sh/policy": "minor",
+          "keel.sh/trigger": "poll",
+        },
+      },
       replicas: 1,
       strategy: DeploymentStrategy.recreate(),
       volumes: [dataVolume, workVolume],
@@ -94,7 +100,9 @@ export class N8nChart extends BitwardenAuthTokenChart {
             N8N_PROXY_HOPS: EnvValue.fromValue("1"),
             N8N_BLOCK_ENV_ACCESS_IN_NODE: EnvValue.fromValue("false"),
             N8N_LOG_LEVEL: EnvValue.fromValue("info"),
-            N8N_RESTRICT_FILE_ACCESS_TO: EnvValue.fromValue("/data/work"),
+            N8N_RESTRICT_FILE_ACCESS_TO: EnvValue.fromValue(
+              "/data/work;/home/node",
+            ),
             NODE_FUNCTION_ALLOW_BUILTIN: EnvValue.fromValue("*"),
             WEBHOOK_URL: EnvValue.fromValue(`https://${webhookHost}/`),
             DB_TYPE: EnvValue.fromValue("sqlite"),

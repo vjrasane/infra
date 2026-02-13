@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Construct } from "constructs";
-import { Include } from "cdk8s";
+import { App, Include } from "cdk8s";
 import { ConfigMap, Namespace } from "cdk8s-plus-28";
 import { ServiceMonitor } from "../imports/monitoring.coreos.com";
 import { Traefik, TraefikValues } from "../imports/traefik";
@@ -62,6 +62,12 @@ export class TraefikChart extends BitwardenAuthTokenChart {
       },
       service: {
         type: "ClusterIP",
+      },
+      deployment: {
+        annotations: {
+          "keel.sh/policy": "minor",
+          "keel.sh/trigger": "poll",
+        },
       },
       providers: {
         kubernetesCrd: {
@@ -167,4 +173,11 @@ export class TraefikChart extends BitwardenAuthTokenChart {
       });
     }
   }
+}
+if (require.main === module) {
+  const app = new App();
+
+  new TraefikChart(app, "traefik");
+
+  app.synth();
 }

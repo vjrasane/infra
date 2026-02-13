@@ -8,6 +8,8 @@ import {
 } from "./lib/affinity";
 import {
   allSubdomains,
+  authentikDomain,
+  authentikUrl,
   cloudSubdomain,
   homeDomain,
   homeSubdomain,
@@ -33,6 +35,7 @@ import { CrowdSecChart } from "./charts/crowdsec";
 import { HAProxyChart } from "./charts/haproxy";
 import { ImmichChart } from "./charts/immich";
 import { NtfyChart } from "./charts/ntfy";
+import { KeelChart } from "./charts/keel";
 import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
 
 const app = new App();
@@ -41,9 +44,6 @@ const resticRepository =
   "s3:s3.eu-central-003.backblazeb2.com/karkkinet-restic-repo";
 const psqlResticRepository =
   "s3:485029190166e70f3358ab9fc87c6b4f.r2.cloudflarestorage.com/karkkinet-psql-backups";
-const giteaResticRepository =
-  "s3:https://fr9g5xx9nd3r.compat.objectstorage.eu-frankfurt-1.oraclecloud.com/karkkinet-gitea-backups";
-
 new BitwardenSecretsManagerChart(app, "bitwarden");
 new MetalLBChart(app, "metallb", {
   addresses: ["192.168.1.200-192.168.1.230"],
@@ -89,11 +89,8 @@ new PostgresChart(app, "postgres", {
   resticRepository: psqlResticRepository,
 });
 
-const authentikDomain = cloudSubdomain("auth");
-const authentikUrl = `https://${authentikDomain}`;
 new AuthentikChart(app, "authentik", {
   hosts: [authentikDomain],
-  resticRepository: psqlResticRepository,
 });
 new PlankaChart(app, "planka", {
   hosts: allSubdomains("planka"),
@@ -143,8 +140,13 @@ new ImmichChart(app, "immich", {
   resticRepository: psqlResticRepository,
 });
 
-new NtfyChart(app, "ntfy", {
+const ntfyChart = new NtfyChart(app, "ntfy", {
   hosts: [homeSubdomain("ntfy")],
+});
+
+new KeelChart(app, "keel", {
+  hosts: [homeSubdomain("keel")],
+  ntfyUrl: ntfyChart.internalUrl,
 });
 
 export default app;

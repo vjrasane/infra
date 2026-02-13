@@ -55,6 +55,11 @@ interface SecureIngressRouteFromServiceProps {
   readonly middlewares?: IngressRouteSpecRoutesMiddlewares[];
 }
 
+interface CreateRouteOpts {
+  middlewares?: IngressRouteSpecRoutesMiddlewares[];
+  pathPrefix?: string;
+}
+
 export class SecureIngressRoute extends Construct {
   constructor(scope: Construct, id: string, props: SecureIngressRouteProps) {
     super(scope, id);
@@ -88,12 +93,16 @@ export class SecureIngressRoute extends Construct {
   static createRoute = (
     hosts: string[],
     services: IngressRouteSpecRoutesServices[],
-    middlewares?: IngressRouteSpecRoutesMiddlewares[],
+    opts?: CreateRouteOpts,
   ) => {
+    const hostsMatch = hosts.map((h) => `Host(\`${h}\`)`).join(" || ");
+    const match = opts?.pathPrefix
+      ? `PathPrefix(\`${opts.pathPrefix}\`) && (${hostsMatch})`
+      : hostsMatch;
     return {
-      match: hosts.map((h) => `Host(\`${h}\`)`).join(" || "),
+      match,
       kind: IngressRouteSpecRoutesKind.RULE,
-      middlewares: middlewares ?? getPublicSecurityMiddlewares(hosts),
+      middlewares: opts?.middlewares ?? getPublicSecurityMiddlewares(hosts),
       services,
     };
   };
@@ -116,7 +125,7 @@ export class SecureIngressRoute extends Construct {
               kind: IngressRouteSpecRoutesServicesKind.SERVICE,
             },
           ],
-          props.middlewares,
+          { middlewares: props.middlewares },
         ),
       ],
     });

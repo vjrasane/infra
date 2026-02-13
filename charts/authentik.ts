@@ -1,4 +1,4 @@
-import { ChartProps } from "cdk8s";
+import { App, ChartProps } from "cdk8s";
 import { EnvValue, Namespace } from "cdk8s-plus-28";
 import { Construct } from "constructs";
 import { Authentik } from "../imports/authentik";
@@ -9,6 +9,7 @@ import {
   IngressRouteSpecRoutesServicesKind,
   IngressRouteSpecRoutesServicesPort,
 } from "../imports/traefik.io";
+import { authentikDomain } from "../lib/hosts";
 import { CLUSTER_ISSUER_NAME } from "../lib/ingress";
 import { LOCAL_PATH_STORAGE_CLASS_NAME } from "../lib/local-path";
 import { PostgresCredentials } from "../lib/postgres";
@@ -17,7 +18,6 @@ import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface AuthentikChartProps extends ChartProps {
   readonly hosts: string[];
-  readonly resticRepository: string;
 }
 
 export class AuthentikChart extends BitwardenAuthTokenChart {
@@ -107,9 +107,19 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
         server: {
           replicas: 3,
           ingress: { enabled: false },
+          strategy: { type: "Recreate" },
+          deploymentAnnotations: {
+            "keel.sh/policy": "minor",
+            "keel.sh/trigger": "poll",
+          },
         },
         worker: {
           replicas: 2,
+          strategy: { type: "Recreate" },
+          deploymentAnnotations: {
+            "keel.sh/policy": "minor",
+            "keel.sh/trigger": "poll",
+          },
         },
       },
     });
@@ -171,4 +181,11 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
       },
     });
   }
+}
+if (require.main === module) {
+  const app = new App();
+  new AuthentikChart(app, "authentik", {
+    hosts: [authentikDomain],
+  });
+  app.synth();
 }
