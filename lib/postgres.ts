@@ -8,11 +8,11 @@ import {
   Volume,
 } from "cdk8s-plus-28";
 import { Construct } from "constructs";
+import { isNil, omitBy } from "lodash/fp";
 import { BitwardenOrgSecret } from "../charts/bitwarden";
 import { LocalPathPvc } from "./local-path";
 
 interface PostgresProps {
-  namespace: string;
   name?: string;
   image?: string;
   volume?: Volume;
@@ -26,32 +26,29 @@ export class Postgres extends Construct {
   constructor(scope: Construct, id: string, props: PostgresProps) {
     super(scope, id);
 
-    const { namespace, volume, credentials, node } = props;
+    const { volume, credentials, node } = props;
 
-    const name = props.name ?? namespace + "-postgres";
     const image = props.image ?? "postgres:17";
 
     const dbVolume =
       volume ??
       new LocalPathPvc(this, "pvc", {
-        namespace,
-        name: name + "-data",
+        name: props.name,
       }).toVolume();
 
-    const dbPodLabels = { "app.kubernetes.io/name": name };
     this.service = new Service(this, "postgres-service", {
-      metadata: { name, namespace, labels: dbPodLabels },
+      metadata: omitBy(isNil, {
+        name: props.name,
+      }),
       clusterIP: "None",
       ports: [{ port: 5432, protocol: Protocol.TCP }],
     });
+
     const postgres = new StatefulSet(this, id + "-stateful-set", {
-      metadata: {
-        name,
-        namespace: namespace,
-        labels: dbPodLabels,
-      },
+      metadata: omitBy(isNil, {
+        name: props.name,
+      }),
       service: this.service,
-      podMetadata: { labels: dbPodLabels },
       replicas: 1,
       volumes: [dbVolume],
       containers: [
@@ -87,8 +84,7 @@ export class Postgres extends Construct {
 }
 
 interface PostgresCredentialsProps {
-  namespace: string;
-  database?: string;
+  database: string;
   user?: string;
   passwordSecretName?: string;
   passwordSecretId: string;
@@ -105,18 +101,16 @@ export class PostgresCredentials extends Construct {
   constructor(scope: Construct, id: string, props: PostgresCredentialsProps) {
     super(scope, id);
 
-    const { passwordSecretId, namespace } = props;
+    const { database, passwordSecretId } = props;
 
+    const user = props.user ?? database;
     this.passwordSecretName =
-      props.passwordSecretName ?? namespace + "-postgres-credentials";
-    const user = props.user ?? namespace;
-    const database = props.database ?? user;
+      props.passwordSecretName ?? database + "-postgres-credentials";
 
     this.user = EnvValue.fromValue(user);
     this.database = EnvValue.fromValue(database);
 
     const secret = new BitwardenOrgSecret(this, "bw-secret", {
-      namespace,
       name: this.passwordSecretName,
       map: [
         {

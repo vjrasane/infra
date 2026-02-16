@@ -37,13 +37,12 @@ export class ImmichChart extends BitwardenAuthTokenChart {
       this,
       "immich-db-credentials",
       {
-        namespace,
+        database: "immich",
         passwordSecretId: dbPasswordBwSecretId,
       },
     );
 
     const postgres = new Postgres(this, "immich-postgres", {
-      namespace,
       image: "tensorchord/pgvecto-rs:pg17-v0.4.0",
       credentials: dbCredentials,
     });
