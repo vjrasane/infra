@@ -6,3 +6,4 @@ includes:
 skipSecrets: true
 skipVariables: true
 skipResources: true
+includeSchedules: true

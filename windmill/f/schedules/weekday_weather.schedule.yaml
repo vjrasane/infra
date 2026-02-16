@@ -1,0 +1,18 @@
+description: ''
+args:
+  city: Helsinki
+  day: tomorrow
+cron_version: v2
+email: vjrasane@gmail.com
+enabled: true
+is_flow: true
+no_flow_overlap: false
+on_failure_exact: false
+on_failure_times: 1
+on_recovery_extra_args: {}
+on_recovery_times: 1
+on_success_extra_args: {}
+schedule: 0 0 21 * * 0-4
+script_path: f/flows/daily_weather_notification
+timezone: Europe/Helsinki
+ws_error_handler_muted: false

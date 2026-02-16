@@ -1,6 +1,6 @@
 version: v2
 locks:
   f/scripts/fetch_weather: 47baaab8fcf0533a9e129b44fbb4bcdd9f859d7ca75db09b27820f7a219d783b
-  f/scripts/format_weather: ac212f3122d4424eefa446ace636641ba5e5b3257369c42ea214c25cfdf1ca26
+  f/scripts/format_weather: 2cb30192c7bad91bbf013c582ddbca2b6899326e11fa095dbea05678994da67c
   f/scripts/notify_weather: 91e2943e91381678c958ed8d08f69563a1f7e3302434269898d39f352a3f6903
   f/scripts/notify_with_ntfy: 49371519efbc7192ceca2643b8d03cecca61291bd6fcfe6b9d300b37178640c1
