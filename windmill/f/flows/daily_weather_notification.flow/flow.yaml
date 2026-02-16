@@ -38,6 +38,21 @@ value:
             value: weather
         is_trigger: false
         path: f/scripts/notify_with_ntfy
+  failure_module:
+    id: failure
+    summary: Send to ntfy
+    value:
+      type: script
+      input_transforms:
+        previous_result:
+          type: static
+          value:
+            name: error.name
+            message: error.message
+            stack: error.stack
+      hash: null
+      is_trigger: false
+      path: f/flows/daily_weather_notification/ntfy/send_the_error_to_ntfy
 schema:
   $schema: 'https://json-schema.org/draft/2020-12/schema'
   type: object

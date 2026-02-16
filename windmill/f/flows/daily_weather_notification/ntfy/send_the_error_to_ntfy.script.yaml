@@ -1,0 +1,30 @@
+summary: ''
+description: ''
+lock: >-
+  !inline
+  f/flows/daily_weather_notification/ntfy/send_the_error_to_ntfy.script.lock
+kind: script
+schema:
+  $schema: 'https://json-schema.org/draft/2020-12/schema'
+  type: object
+  properties:
+    previous_result:
+      type: object
+      description: ''
+      default: null
+      format: resource-error_result
+      properties:
+        name:
+          type: string
+          description: ''
+          originalType: string
+        message:
+          type: string
+          description: ''
+          originalType: string
+        stack:
+          type: string
+          description: ''
+          originalType: string
+  required:
+    - previous_result
