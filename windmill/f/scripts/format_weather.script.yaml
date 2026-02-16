@@ -1,0 +1,27 @@
+summary: ''
+description: ''
+lock: '!inline f/scripts/format_weather.script.lock'
+kind: script
+schema:
+  $schema: 'https://json-schema.org/draft/2020-12/schema'
+  type: object
+  properties:
+    day:
+      type: string
+      description: ''
+      default: null
+      enum:
+        - today
+        - tomorrow
+      originalType: enum
+    forecasts:
+      type: array
+      description: ''
+      default: null
+      items:
+        type: resource
+        resourceType: forecast_entry
+      originalType: 'resource[]'
+  required:
+    - forecasts
+    - day

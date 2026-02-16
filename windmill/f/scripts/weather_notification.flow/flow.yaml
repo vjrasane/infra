@@ -1,0 +1,31 @@
+summary: 'Daily weather notification'
+description: 'Fetches weather forecast and sends ntfy notification'
+value:
+  modules: 
+  - id: fetch 
+    value: 
+      type: script
+      path: f/scripts/fetch_weather
+      input_transforms:
+        city:
+          type: javascript
+          expr: flow_input.iter.value["city"]
+  - id: format
+    value:
+      type: script
+      path: f/scripts/notify_with_ntfy
+      input_transforms:
+        forecasts: 
+          type: javascript
+          expr: results.fetch
+        day:
+          type: javascript
+          expr: flow_input.iter.value["day"]
+  - id
+schema:
+  $schema: 'https://json-schema.org/draft/2020-12/schema'
+  type: object
+  order: []
+  properties: {}
+  required: []
+ws_error_handler_muted: false

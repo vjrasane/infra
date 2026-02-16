@@ -1,0 +1,8 @@
+defaultTs: bun
+
+includes:
+  - "f/**"
+
+skipSecrets: true
+skipVariables: true
+skipResources: true

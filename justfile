@@ -47,6 +47,15 @@ backup-psql:
     echo "Restic backup complete."
     kubectl logs -n postgres job/$RESTIC_JOB --tail=10
 
+wmill *args:
+    cd windmill && npx windmill-cli@latest {{args}}
+
+wmill-push:
+    cd windmill && npx windmill-cli@latest script generate-metadata && npx windmill-cli@latest sync push
+
+wmill-pull:
+    cd windmill && npx windmill-cli@latest sync pull --skip-secrets --skip-variables --skip-resources
+
 restore-psql:
     #!/usr/bin/env bash
     set -e
