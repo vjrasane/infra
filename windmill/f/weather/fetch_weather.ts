@@ -1,4 +1,4 @@
-import * as wmill from "windmill-client";
+import { weatherapi } from "../common/resources";
 
 export interface ForecastEntry {
   dt: number;
@@ -26,10 +26,12 @@ export interface ForecastEntry {
   visibility: number;
 }
 
-export async function main(city: string): Promise<ForecastEntry[]> {
-  const apiKey = await wmill.getVariable("f/scripts/openweathermap_api_key");
+export async function main(
+  city: string,
+  weatherapi: weatherapi,
+): Promise<ForecastEntry[]> {
   const res = await fetch(
-    `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`,
+    `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${weatherapi.apiKey}&units=metric`,
   );
 
   if (!res.ok) {

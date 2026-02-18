@@ -1,0 +1,43 @@
+summary: ''
+description: ''
+lock: '!inline f/cook/pick_recipes.script.lock'
+kind: script
+schema:
+  $schema: 'https://json-schema.org/draft/2020-12/schema'
+  type: object
+  properties:
+    count:
+      type: number
+      description: ''
+      default: null
+    course:
+      type: string
+      description: ''
+      default: null
+      originalType: string
+    recipes:
+      type: array
+      description: ''
+      default: null
+      items:
+        type: resource
+        resourceType: parsed_recipe
+      originalType: 'resource[]'
+    selected:
+      type: array
+      description: ''
+      default: []
+      items:
+        type: resource
+        resourceType: parsed_recipe
+      originalType: 'resource[]'
+    tags:
+      type: array
+      description: ''
+      default: []
+      items:
+        type: string
+      originalType: 'string[]'
+  required:
+    - count
+    - recipes

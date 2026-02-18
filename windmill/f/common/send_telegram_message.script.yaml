@@ -1,0 +1,38 @@
+summary: ''
+description: ''
+lock: '!inline f/common/send_telegram_message.script.lock'
+kind: script
+schema:
+  $schema: 'https://json-schema.org/draft/2020-12/schema'
+  type: object
+  properties:
+    message:
+      type: string
+      description: ''
+      default: null
+      originalType: string
+    parse_mode:
+      type: string
+      description: ''
+      default: null
+      enum:
+        - MarkdownV2
+        - HTML
+      originalType: enum
+    telegram:
+      type: object
+      description: ''
+      default: null
+      format: resource-telegram_bot
+      properties:
+        chat_id:
+          type: string
+          description: ''
+          originalType: string
+        token:
+          type: string
+          description: ''
+          originalType: string
+  required:
+    - telegram
+    - message

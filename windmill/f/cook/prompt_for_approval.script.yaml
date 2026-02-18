@@ -1,15 +1,21 @@
 summary: ''
 description: ''
-lock: '!inline f/scripts/fetch_weather.script.lock'
+lock: '!inline f/cook/prompt_for_approval.script.lock'
 kind: script
 schema:
   $schema: 'https://json-schema.org/draft/2020-12/schema'
   type: object
   properties:
-    city:
+    message:
       type: string
       description: ''
       default: null
       originalType: string
+    telegram:
+      type: object
+      description: ''
+      default: null
+      format: resource-telegram_bot
   required:
-    - city
+    - telegram
+    - message

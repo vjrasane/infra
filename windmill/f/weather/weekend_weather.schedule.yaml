@@ -13,6 +13,6 @@ on_recovery_extra_args: {}
 on_recovery_times: 1
 on_success_extra_args: {}
 schedule: 0 0 10 * * 0/6
-script_path: f/flows/daily_weather_notification
+script_path: f/weather/daily_weather_notification
 timezone: Europe/Helsinki
 ws_error_handler_muted: false

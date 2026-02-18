@@ -1,27 +1,26 @@
 summary: ''
 description: ''
-lock: '!inline f/scripts/notify_with_ntfy.script.lock'
+lock: '!inline f/weather/fetch_weather.script.lock'
 kind: script
 schema:
   $schema: 'https://json-schema.org/draft/2020-12/schema'
   type: object
   properties:
-    message:
+    city:
       type: string
       description: ''
       default: null
       originalType: string
-    title:
-      type: string
+    weatherapi:
+      type: object
       description: ''
       default: null
-      originalType: string
-    topic:
-      type: string
-      description: ''
-      default: null
-      originalType: string
+      format: resource-weatherapi
+      properties:
+        apiKey:
+          type: string
+          description: ''
+          originalType: string
   required:
-    - title
-    - message
-    - topic
+    - city
+    - weatherapi

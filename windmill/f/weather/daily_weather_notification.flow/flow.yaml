@@ -9,8 +9,11 @@ value:
           city:
             type: javascript
             expr: flow_input.city
+          weatherapi:
+            type: static
+            value: '$res:u/vjrasane/openweathermap'
         is_trigger: false
-        path: f/scripts/fetch_weather
+        path: f/weather/fetch_weather
     - id: format
       value:
         type: script
@@ -22,7 +25,7 @@ value:
             type: javascript
             expr: results.fetch
         is_trigger: false
-        path: f/scripts/format_weather
+        path: f/weather/format_weather
     - id: notify
       value:
         type: script
@@ -37,7 +40,7 @@ value:
             type: static
             value: weather
         is_trigger: false
-        path: f/scripts/notify_with_ntfy
+        path: f/common/notify_with_ntfy
   failure_module:
     id: failure
     summary: Send to ntfy
@@ -52,7 +55,7 @@ value:
             stack: error.stack
       hash: null
       is_trigger: false
-      path: f/flows/daily_weather_notification/ntfy/send_the_error_to_ntfy
+      path: f/weather/daily_weather_notification/ntfy/send_the_error_to_ntfy
 schema:
   $schema: 'https://json-schema.org/draft/2020-12/schema'
   type: object

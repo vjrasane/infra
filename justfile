@@ -54,7 +54,7 @@ wmill-push:
     cd windmill && npx windmill-cli@latest script generate-metadata && npx windmill-cli@latest sync push
 
 wmill-pull:
-    cd windmill && npx windmill-cli@latest sync pull --skip-secrets --skip-variables --skip-resources
+    cd windmill && npx windmill-cli@latest sync pull --skip-secrets --skip-variables
 
 restore-psql:
     #!/usr/bin/env bash

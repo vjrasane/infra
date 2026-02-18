@@ -2,7 +2,7 @@ summary: ''
 description: ''
 lock: >-
   !inline
-  f/flows/daily_weather_notification/ntfy/send_the_error_to_ntfy.script.lock
+  f/weather/daily_weather_notification/ntfy/send_the_error_to_ntfy.script.lock
 kind: script
 schema:
   $schema: 'https://json-schema.org/draft/2020-12/schema'

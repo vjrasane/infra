@@ -10,8 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@cooklang/cooklang": "^0.17.2",
+    "@cooklang/cooklang-ts": "^1.2.7",
     "axios": "^1.13.5",
     "date-fns": "^4.1.0",
+    "gray-matter": "^4.0.3",
     "lodash": "^4.17.23",
     "windmill-client": "^1.635.1"
   },

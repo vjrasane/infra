@@ -1,6 +1,6 @@
 summary: ''
 description: ''
-lock: '!inline f/scripts/format_weather.script.lock'
+lock: '!inline f/weather/format_weather.script.lock'
 kind: script
 schema:
   $schema: 'https://json-schema.org/draft/2020-12/schema'

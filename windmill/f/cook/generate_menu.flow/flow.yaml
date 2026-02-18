@@ -1,0 +1,132 @@
+summary: Generate menu
+description: Generate menu
+value:
+  modules:
+    - id: fetch
+      value:
+        type: script
+        input_transforms: {}
+        is_trigger: false
+        path: f/cook/fetch_recipes
+    - id: parse
+      value:
+        type: script
+        input_transforms:
+          files:
+            type: javascript
+            expr: results.fetch
+        is_trigger: false
+        path: f/cook/parse_recipes
+    - id: iterate
+      value:
+        type: whileloopflow
+        modules:
+          - id: pick
+            value:
+              type: script
+              input_transforms:
+                count:
+                  type: javascript
+                  expr: flow_input.count
+                course:
+                  type: static
+                  value: main
+                recipes:
+                  type: javascript
+                  expr: results.parse
+                selected:
+                  type: static
+                  value: []
+                tags:
+                  type: static
+                  value: []
+              is_trigger: false
+              path: f/cook/pick_recipes
+          - id: format
+            value:
+              type: script
+              input_transforms:
+                menu:
+                  type: javascript
+                  expr: results.pick
+              is_trigger: false
+              path: f/cook/format_menu
+          - id: approve
+            value:
+              type: script
+              input_transforms:
+                message:
+                  type: javascript
+                  expr: results.format
+                telegram:
+                  type: static
+                  value: '$res:u/vjrasane/menu_bot'
+              is_trigger: false
+              path: f/cook/prompt_for_approval
+            continue_on_error: false
+            suspend:
+              required_events: 1
+              timeout: 88200
+          - id: a
+            summary: ''
+            value:
+              type: branchone
+              branches:
+                - summary: ''
+                  modules:
+                    - id: b
+                      value:
+                        type: script
+                        input_transforms:
+                          message:
+                            type: static
+                            value: ok
+                          parse_mode:
+                            type: static
+                          telegram:
+                            type: static
+                            value: '$res:u/vjrasane/menu_bot'
+                        is_trigger: false
+                        path: f/common/send_telegram_message
+                      continue_on_error: false
+                      stop_after_if:
+                        error_message: null
+                        expr: 'true'
+                        skip_if_stopped: false
+                  expr: resume.action === "approve"
+                  parallel: true
+                  skip_failure: true
+                - summary: ''
+                  modules: []
+                  expr: resume.action === "revise"
+                  parallel: true
+                  skip_failure: true
+              default:
+                - id: c
+                  value:
+                    type: rawscript
+                    content: '!inline c.inline_script.sh'
+                    input_transforms: {}
+                    lock: ''
+                    language: bash
+                  continue_on_error: false
+                  stop_after_if:
+                    error_message: null
+                    expr: 'true'
+                    skip_if_stopped: false
+        skip_failures: false
+        squash: false
+  same_worker: true
+schema:
+  $schema: 'https://json-schema.org/draft/2020-12/schema'
+  type: object
+  order:
+    - count
+  properties:
+    count:
+      type: string
+      description: ''
+      default: ''
+      nullable: false
+  required:
+    - count

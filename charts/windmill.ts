@@ -68,6 +68,8 @@ export class WindmillChart extends BitwardenAuthTokenChart {
     const keelAnnotations = {
       "keel.sh/policy": "minor",
       "keel.sh/trigger": "poll",
+      "keel.sh/pollSchedule": "@every 48h",
+      "keel.sh/match-tag": "regexp:^\\d+\\.\\d+\\.\\d+$",
     };
 
     const databaseUrl = EnvValue.fromSecretValue({
