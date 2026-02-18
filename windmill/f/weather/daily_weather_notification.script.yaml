@@ -1,6 +1,6 @@
 summary: ''
 description: ''
-lock: '!inline f/weather/fetch_weather.script.lock'
+lock: '!inline f/weather/daily_weather_notification.script.lock'
 kind: script
 schema:
   $schema: 'https://json-schema.org/draft/2020-12/schema'
@@ -11,16 +11,26 @@ schema:
       description: ''
       default: null
       originalType: string
+    day:
+      type: string
+      description: ''
+      default: null
+      enum:
+        - today
+        - tomorrow
+      originalType: enum
+    ntfy:
+      type: object
+      description: ''
+      default: null
+      format: resource-ntfy
     weatherapi:
       type: object
       description: ''
       default: null
       format: resource-weatherapi
-      properties:
-        apiKey:
-          type: string
-          description: ''
-          originalType: string
   required:
     - city
+    - day
+    - ntfy
     - weatherapi

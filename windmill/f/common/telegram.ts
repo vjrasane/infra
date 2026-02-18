@@ -1,6 +1,9 @@
-import { TelegramBot } from "./telegram";
+export type TelegramBot = {
+  token: string;
+  chat_id: string;
+};
 
-export async function main(
+export async function sendTelegramMessage(
   telegram: TelegramBot,
   message: string,
   parse_mode?: "MarkdownV2" | "HTML",

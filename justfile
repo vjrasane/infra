@@ -50,8 +50,11 @@ backup-psql:
 wmill *args:
     cd windmill && npx windmill-cli@latest {{args}}
 
-wmill-push:
-    cd windmill && npx windmill-cli@latest script generate-metadata && npx windmill-cli@latest sync push
+wmill-gen:
+  @just wmill script generate-metadata
+
+wmill-push *args:
+  @just wmill sync push {{args}}
 
 wmill-pull:
     cd windmill && npx windmill-cli@latest sync pull --skip-secrets --skip-variables

@@ -1,5 +1,5 @@
 import * as wmill from "windmill-client";
-import { TelegramBot } from "../common/resources";
+import { TelegramBot } from "../common/telegram";
 
 export async function main(telegram: TelegramBot, message: string) {
   const urls = await wmill.getResumeUrls("telegram");
