@@ -17,6 +17,8 @@
     package = pkgs.nodejs_22;
   };
 
+  languages.rust.enable = true;
+
   languages.typescript.enable = true;
 
   packages = with pkgs; [
