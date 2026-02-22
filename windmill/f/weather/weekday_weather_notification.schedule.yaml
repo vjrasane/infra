@@ -2,7 +2,8 @@ description: ''
 args:
   city: Helsinki
   day: tomorrow
-  telegram: '$res:u/vjrasane/menu_bot'
+  timezone: Europe/Helsinki
+  ntfy: '$res:u/vjrasane/ntfy'
   weatherapi: '$res:u/vjrasane/openweathermap'
 cron_version: v2
 email: vjrasane@gmail.com

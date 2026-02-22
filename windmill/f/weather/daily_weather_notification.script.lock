@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "date-fns": "latest",
+    "@date-fns/tz": "latest",
     "lodash": "latest"
   }
 }
@@ -11,12 +12,15 @@
   "workspaces": {
     "": {
       "dependencies": {
+        "@date-fns/tz": "latest",
         "date-fns": "latest",
         "lodash": "latest",
       },
     },
   },
   "packages": {
+    "@date-fns/tz": ["@date-fns/tz@1.4.1", "", {}, "sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA=="],
+
     "date-fns": ["date-fns@4.1.0", "", {}, "sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg=="],
 
     "lodash": ["lodash@4.17.23", "", {}, "sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w=="],

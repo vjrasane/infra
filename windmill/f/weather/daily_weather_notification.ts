@@ -1,7 +1,18 @@
-import { addDays, format, fromUnixTime, isSameDay } from "date-fns";
-import { capitalize } from "lodash/fp";
+import {
+  addDays,
+  differenceInSeconds,
+  format,
+  isSameDay,
+  set,
+} from "date-fns";
+import { TZDate } from "@date-fns/tz";
+import { capitalize, minBy } from "lodash/fp";
 import { ntfy, sendToNtfy } from "../common/ntfy";
 import { weatherapi } from "../common/resources";
+
+function toTZDate(epochSeconds: number, timezone: string): TZDate {
+  return new TZDate(epochSeconds * 1000, timezone);
+}
 
 export interface ForecastEntry {
   dt: number;
@@ -32,6 +43,7 @@ export interface ForecastEntry {
 export async function main(
   city: string,
   day: "today" | "tomorrow",
+  timezone: string,
   ntfy: ntfy,
   weatherapi: weatherapi,
 ): Promise<any> {
@@ -46,21 +58,23 @@ export async function main(
   const data = await res.json();
   const forecasts: ForecastEntry[] = data.list;
 
-  const { title, message } = formatForecasts(forecasts, day);
+  const { title, message } = formatForecasts(forecasts, day, timezone);
 
   const response = await sendToNtfy(ntfy, title, message, "weather");
 
   return response;
 }
 
-function formatForecasts(
+export function formatForecasts(
   forecasts: ForecastEntry[],
   day: "today" | "tomorrow",
+  timezone: string,
+  now: Date = new TZDate(Date.now(), timezone),
 ) {
   const dayOffset = day === "today" ? 0 : 1;
-  const targetDate = addDays(new Date(), dayOffset);
+  const targetDate = addDays(now, dayOffset);
   const targetForecasts = forecasts.filter((f) =>
-    isSameDay(fromUnixTime(f.dt), targetDate),
+    isSameDay(toTZDate(f.dt, timezone), targetDate),
   );
 
   if (!targetForecasts.length)
@@ -69,21 +83,13 @@ function formatForecasts(
       message: `No forecast available for ${format(targetDate, "yyyy-MM-dd")}`,
     };
 
-  const temps = targetForecasts.map((f) => f.main.temp);
-  const minTemp = Math.round(Math.min(...temps));
-  const maxTemp = Math.round(Math.max(...temps));
-  const feelsLike = targetForecasts.map((f) => f.main.feels_like);
-  const minFeels = Math.round(Math.min(...feelsLike));
-  const maxFeels = Math.round(Math.max(...feelsLike));
-
-  const conditions = targetForecasts.map((f) => f.weather[0].description);
-  const conditionCounts: Record<string, number> = {};
-  conditions.forEach(
-    (c) => (conditionCounts[c] = (conditionCounts[c] || 0) + 1),
+  const hourForecasts = [8, 12, 16].map((hours) =>
+    getForecastAtTime(
+      set(targetDate, { hours, minutes: 0, seconds: 0 }),
+      targetForecasts,
+      timezone,
+    ),
   );
-  const mainCondition = Object.entries(conditionCounts).sort(
-    (a, b) => b[1] - a[1],
-  )[0][0];
 
   const winds = targetForecasts.map((f) => f.wind.speed);
   const maxWind = Math.round(Math.max(...winds));
@@ -102,23 +108,33 @@ function formatForecasts(
     0,
   );
 
-  const feelsMessage =
-    minFeels < maxFeels ? `${minFeels}°C to ${maxFeels}°C` : `${minFeels}°C`;
-  const tempMessage =
-    minTemp < maxTemp ? `${minTemp}°C to ${maxTemp}°C` : `${minTemp}°C`;
-  let message = `${feelsMessage}, ${mainCondition}\n\n`;
-  message += `Temperature: ${tempMessage}\n`;
-  message += `Wind: up to ${maxWind} m/s\n`;
-  message += `Humidity: ~${avgHumidity}%\n`;
+  const [morning, noon, evening] = hourForecasts;
 
-  if (totalRain > 0) {
-    message += `Rain: ${totalRain.toFixed(1)} mm\n`;
-  }
-  if (totalSnow > 0) {
-    message += `Snow: ${totalSnow.toFixed(1)} mm\n`;
-  }
+  const formatEntry = (f: ForecastEntry) =>
+    `${format(toTZDate(f.dt, timezone), "HH:mm")}: ${Math.round(f.main.feels_like)}°C, ${f.weather[0].description}`;
+
+  const lines: string[] = [];
+  if (morning) lines.push(formatEntry(morning));
+  if (noon) lines.push(formatEntry(noon));
+  if (evening) lines.push(formatEntry(evening));
+  lines.push(`Wind: up to ${maxWind} m/s`);
+  lines.push(`Humidity: ~${avgHumidity}%`);
+
+  if (totalRain > 0) lines.push(`Rain: ${totalRain.toFixed(1)} mm`);
+  if (totalSnow > 0) lines.push(`Snow: ${totalSnow.toFixed(1)} mm`);
 
   const title = `${capitalize(day)}'s Weather - ${format(targetDate, "EEEE, MMMM d")}`;
 
-  return { title, message };
+  return { title, message: lines.join("\n") };
+}
+
+export function getForecastAtTime(
+  time: Date,
+  forecasts: ForecastEntry[],
+  timezone: string,
+): ForecastEntry | undefined {
+  return minBy(
+    (d) => Math.abs(differenceInSeconds(toTZDate(d.dt, timezone), time)),
+    forecasts,
+  );
 }

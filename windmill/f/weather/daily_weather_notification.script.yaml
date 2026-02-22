@@ -24,6 +24,11 @@ schema:
       description: ''
       default: null
       format: resource-ntfy
+    timezone:
+      type: string
+      description: ''
+      default: null
+      originalType: string
     weatherapi:
       type: object
       description: ''
@@ -32,5 +37,6 @@ schema:
   required:
     - city
     - day
+    - timezone
     - ntfy
     - weatherapi
