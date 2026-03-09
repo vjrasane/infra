@@ -13,6 +13,6 @@ imports:
   - helm:https://helm.vector.dev/vector@0.50.0
   - helm:https://grafana.github.io/helm-charts/loki@6.51.0
   - https://raw.githubusercontent.com/traefik/traefik/v3.3/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
-  - helm:https://charts.goauthentik.io/authentik@2025.10.3
+  - helm:https://charts.goauthentik.io/authentik@2025.12.4
   - helm:https://dl.gitea.com/charts/gitea@12.5.0
   - helm:https://dl.gitea.com/charts/actions@0.0.2

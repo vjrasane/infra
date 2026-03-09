@@ -31,7 +31,7 @@ import { JellyfinChart } from "./charts/jellyfin";
 import { KubePrometheusStackChart } from "./charts/kube-prometheus-stack";
 import { VectorChart } from "./charts/vector";
 import { LokiChart } from "./charts/loki";
-import { CrowdSecChart } from "./charts/crowdsec";
+import { BLOCKED_COUNTRIES, CrowdSecChart } from "./charts/crowdsec";
 import { HAProxyChart } from "./charts/haproxy";
 import { ImmichChart } from "./charts/immich";
 import { NtfyChart } from "./charts/ntfy";
@@ -62,7 +62,7 @@ new LocalPathProvisionerChart(app, "local-path-provisioner", {
   ],
 });
 new CrowdSecChart(app, "crowdsec", {
-  blockedCountries: ["CN", "RU", "KP", "IR", "BY", "IL", "IN", "PK", "US"],
+  blockedCountries: BLOCKED_COUNTRIES,
 });
 new HAProxyChart(app, "haproxy", {
   traefikServiceHost: "traefik.traefik.svc.cluster.local",

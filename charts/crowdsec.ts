@@ -1,5 +1,5 @@
 import { Construct } from "constructs";
-import { Cron, ChartProps } from "cdk8s";
+import { App, Cron, ChartProps } from "cdk8s";
 import {
   Namespace,
   CronJob,
@@ -12,6 +12,8 @@ import * as yaml from "yaml";
 import { Crowdsec } from "../imports/crowdsec";
 import { Middleware } from "../imports/traefik.io";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
+
+export const BLOCKED_COUNTRIES = ["CN", "RU", "KP", "IR", "BY", "IL", "IN", "PK", "US"];
 
 interface CrowdSecChartProps extends ChartProps {
   readonly traefikNamespace?: string;
@@ -92,6 +94,7 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
         },
         appsec: {
           enabled: true,
+          replicas: 2,
           acquisitions: [
             {
               source: "appsec",
@@ -107,6 +110,36 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
               value: "crowdsecurity/appsec-virtual-patching",
             },
           ],
+          affinity: {
+            podAffinity: {
+              requiredDuringSchedulingIgnoredDuringExecution: [
+                {
+                  labelSelector: {
+                    matchLabels: {
+                      "app.kubernetes.io/name": "traefik",
+                    },
+                  },
+                  topologyKey: "kubernetes.io/hostname",
+                },
+              ],
+            },
+            podAntiAffinity: {
+              preferredDuringSchedulingIgnoredDuringExecution: [
+                {
+                  weight: 100,
+                  podAffinityTerm: {
+                    labelSelector: {
+                      matchLabels: {
+                        "k8s-app": "crowdsec",
+                        type: "appsec",
+                      },
+                    },
+                    topologyKey: "kubernetes.io/hostname",
+                  },
+                },
+              ],
+            },
+          },
         },
         agent: {
           acquisition: [
@@ -211,4 +244,11 @@ export class CrowdSecChart extends BitwardenAuthTokenChart {
       });
     }
   }
+}
+if (require.main === module) {
+  const app = new App();
+  new CrowdSecChart(app, "crowdsec", {
+    blockedCountries: BLOCKED_COUNTRIES,
+  });
+  app.synth();
 }

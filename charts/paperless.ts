@@ -18,7 +18,11 @@ import {
 } from "../lib/hosts";
 import { SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
-import { ORACLE_PAPERLESS_RESTIC_REPO, ResticCredentials, ResticRepo } from "../lib/restic";
+import {
+  ORACLE_PAPERLESS_RESTIC_REPO,
+  ResticCredentials,
+  ResticRepo,
+} from "../lib/restic";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface PaperlessChartProps extends ChartProps {
@@ -124,9 +128,9 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
 
       volumes: [dataVolume, mediaVolume],
     });
-    const paperless = paperlessDeployment.exposeViaService();
 
     redisDeployment.scheduling.colocate(paperlessDeployment);
+    const paperless = paperlessDeployment.exposeViaService();
 
     SecureIngressRoute.fromService(this, "ingress", paperless, {
       hosts: props.hosts,

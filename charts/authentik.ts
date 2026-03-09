@@ -1,5 +1,5 @@
 import { App, ChartProps } from "cdk8s";
-import { EnvValue, Namespace } from "cdk8s-plus-28";
+import { Deployment, EnvValue, Namespace } from "cdk8s-plus-28";
 import { Construct } from "constructs";
 import { Authentik } from "../imports/authentik";
 import { Certificate } from "../imports/cert-manager.io";
@@ -57,9 +57,23 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
     });
 
     const dbCredentials = new PostgresCredentials(this, "db-credentials", {
-      namespace,
+      database: "authentik",
       passwordSecretName: "authentik-db",
       passwordSecretId: "395b1143-3eea-4071-b3f0-b3bb01819829",
+    });
+
+    const redis = new Deployment(this, "redis", {
+      replicas: 1,
+      containers: [
+        {
+          image: "docker.io/library/redis:7",
+          ports: [{ number: 6379 }],
+          securityContext: {
+            ensureNonRoot: false,
+            readOnlyRootFilesystem: false,
+          },
+        },
+      ],
     });
 
     // Authentik Helm chart with embedded PostgreSQL
@@ -80,6 +94,10 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
             {
               name: "AUTHENTIK_POSTGRESQL__PASSWORD",
               valueFrom: dbCredentials.password.valueFrom,
+            },
+            {
+              name: "AUTHENTIK_REDIS__HOST",
+              value: redis.name,
             },
           ],
         },
@@ -104,21 +122,54 @@ export class AuthentikChart extends BitwardenAuthTokenChart {
             },
           },
         },
+        redis: {
+          enabled: false,
+        },
         server: {
           replicas: 3,
           ingress: { enabled: false },
           strategy: { type: "Recreate" },
-          deploymentAnnotations: {
-            "keel.sh/policy": "minor",
-            "keel.sh/trigger": "poll",
+          affinity: {
+            podAffinity: {
+              preferredDuringSchedulingIgnoredDuringExecution: [
+                {
+                  weight: 100,
+                  podAffinityTerm: {
+                    labelSelector: {
+                      matchLabels: {
+                        "app.kubernetes.io/component": "primary",
+                        "app.kubernetes.io/instance": "authentik",
+                        "app.kubernetes.io/name": "postgresql",
+                      },
+                    },
+                    topologyKey: "kubernetes.io/hostname",
+                  },
+                },
+              ],
+            },
           },
         },
         worker: {
           replicas: 2,
           strategy: { type: "Recreate" },
-          deploymentAnnotations: {
-            "keel.sh/policy": "minor",
-            "keel.sh/trigger": "poll",
+          affinity: {
+            podAffinity: {
+              preferredDuringSchedulingIgnoredDuringExecution: [
+                {
+                  weight: 100,
+                  podAffinityTerm: {
+                    labelSelector: {
+                      matchLabels: {
+                        "app.kubernetes.io/component": "primary",
+                        "app.kubernetes.io/instance": "authentik",
+                        "app.kubernetes.io/name": "postgresql",
+                      },
+                    },
+                    topologyKey: "kubernetes.io/hostname",
+                  },
+                },
+              ],
+            },
           },
         },
       },

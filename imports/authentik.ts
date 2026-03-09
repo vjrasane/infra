@@ -32,7 +32,7 @@ export class Authentik extends Construct {
     const finalProps: HelmProps = {
       chart: 'authentik',
       repo: 'https://charts.goauthentik.io',
-      version: '2025.10.3',
+      version: '2025.12.4',
       ...(Object.keys(updatedProps).length !== 0 ? updatedProps : props),
     };
 
