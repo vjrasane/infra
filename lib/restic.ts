@@ -38,12 +38,6 @@ export const ORACLE_GITEA_RESTIC_REPO = {
   accessKeySecretBwSecretId: "64cc6e3c-70fe-4b68-af44-b3e700f13ec9",
   resticPasswordBwSecretId: "8c07760e-5f05-44e6-930e-b3e700f4711e",
 };
-export const TEBI_RESTIC_REPO = {
-  url: "s3:s3.tebi.io/karkkinet-backups",
-  accessKeyIdBwSecretId: "97d3b928-04a6-4105-accd-b3e90100d52f",
-  accessKeySecretBwSecretId: "c18331b8-cab4-4b41-8c4b-b3e90100ef23",
-  resticPasswordBwSecretId: "465fa662-5061-4979-9c99-b3e901012dfa",
-};
 export const ORACLE_PAPERLESS_RESTIC_REPO = {
   url: "s3:https://fr9g5xx9nd3r.compat.objectstorage.eu-frankfurt-1.oraclecloud.com/karkkinet-paperless-backups",
   accessKeyIdBwSecretId: "7cb385c4-7707-4078-85e7-b416008b379a",
