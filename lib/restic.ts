@@ -32,7 +32,7 @@ export const CLOUDFLARE_RESTIC_REPO = {
   accessKeySecretBwSecretId: "d75b4c3e-0789-41dc-986b-b3e000f276d2",
   resticPasswordBwSecretId: "538b50a8-a3e7-48bb-9e4c-b3ec00d8a18a",
 };
-export const ORACLE_RESTIC_REPO = {
+export const ORACLE_GITEA_RESTIC_REPO = {
   url: "s3:https://fr9g5xx9nd3r.compat.objectstorage.eu-frankfurt-1.oraclecloud.com/karkkinet-gitea-backups",
   accessKeyIdBwSecretId: "a46a4c87-a3cb-456f-84f2-b3e700f16f9d",
   accessKeySecretBwSecretId: "64cc6e3c-70fe-4b68-af44-b3e700f13ec9",
@@ -43,6 +43,12 @@ export const TEBI_RESTIC_REPO = {
   accessKeyIdBwSecretId: "97d3b928-04a6-4105-accd-b3e90100d52f",
   accessKeySecretBwSecretId: "c18331b8-cab4-4b41-8c4b-b3e90100ef23",
   resticPasswordBwSecretId: "465fa662-5061-4979-9c99-b3e901012dfa",
+};
+export const ORACLE_PAPERLESS_RESTIC_REPO = {
+  url: "s3:https://fr9g5xx9nd3r.compat.objectstorage.eu-frankfurt-1.oraclecloud.com/karkkinet-paperless-backups",
+  accessKeyIdBwSecretId: "7cb385c4-7707-4078-85e7-b416008b379a",
+  accessKeySecretBwSecretId: "48607e11-8263-4174-bf91-b416008b5ead",
+  resticPasswordBwSecretId: "a4f2855c-34b4-471c-8abe-b416008b11a6",
 };
 export const FILEBASE_RESTIC_REPO = {
   url: "s3:https://s3.filebase.com/karkkinet-backups",

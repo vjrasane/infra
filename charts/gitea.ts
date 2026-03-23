@@ -24,7 +24,7 @@ import { SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
 import {
   createSqliteVacuum,
-  ORACLE_RESTIC_REPO,
+  ORACLE_GITEA_RESTIC_REPO,
   ResticBackup,
   ResticCredentials,
   ResticRepo,
@@ -247,7 +247,7 @@ if (require.main === module) {
   new GiteaChart(app, "gitea", {
     hosts: allSubdomains("gitea"),
     authentikUrl,
-    resticRepo: ORACLE_RESTIC_REPO,
+    resticRepo: ORACLE_GITEA_RESTIC_REPO,
   });
 
   app.synth();

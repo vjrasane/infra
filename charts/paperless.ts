@@ -18,7 +18,7 @@ import {
 } from "../lib/hosts";
 import { SecureIngressRoute } from "../lib/ingress";
 import { LocalPathPvc } from "../lib/local-path";
-import { ResticCredentials, ResticRepo, TEBI_RESTIC_REPO } from "../lib/restic";
+import { ORACLE_PAPERLESS_RESTIC_REPO, ResticCredentials, ResticRepo } from "../lib/restic";
 import { BitwardenAuthTokenChart, BitwardenOrgSecret } from "./bitwarden";
 
 interface PaperlessChartProps extends ChartProps {
@@ -236,7 +236,7 @@ if (require.main === module) {
   new PaperlessChart(app, "paperless", {
     authentikUrl,
     hosts: [homeSubdomain("paperless")],
-    resticRepo: TEBI_RESTIC_REPO,
+    resticRepo: ORACLE_PAPERLESS_RESTIC_REPO,
   });
 
   app.synth();
