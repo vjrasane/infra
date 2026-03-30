@@ -36,6 +36,7 @@ import { HAProxyChart } from "./charts/haproxy";
 import { ImmichChart } from "./charts/immich";
 import { NtfyChart } from "./charts/ntfy";
 import { KeelChart } from "./charts/keel";
+import { ChessBotChart } from "./charts/chess-bot";
 import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
 
 const app = new App();
@@ -148,5 +149,7 @@ new KeelChart(app, "keel", {
   hosts: [homeSubdomain("keel")],
   ntfyUrl: ntfyChart.internalUrl,
 });
+
+new ChessBotChart(app, "chess-bot");
 
 export default app;

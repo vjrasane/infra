@@ -71,6 +71,10 @@ export function preferredNodeAffinity(
   };
 }
 
+export function cloudProviderNode(provider: string): LabeledNode {
+  return new LabeledNode([NodeLabelQuery.is(CLOUD_PROVIDER_LABEL, provider)]);
+}
+
 export const cloudNode = new LabeledNode([
   NodeLabelQuery.exists(CLOUD_PROVIDER_LABEL),
 ]);
