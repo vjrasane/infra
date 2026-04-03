@@ -37,6 +37,7 @@ import { ImmichChart } from "./charts/immich";
 import { NtfyChart } from "./charts/ntfy";
 import { KeelChart } from "./charts/keel";
 import { ChessBotChart } from "./charts/chess-bot";
+import { WordleBotChart } from "./charts/wordle-bot";
 import { CLUSTER_ISSUER_NAME } from "./lib/ingress";
 
 const app = new App();
@@ -151,5 +152,6 @@ new KeelChart(app, "keel", {
 });
 
 new ChessBotChart(app, "chess-bot");
+new WordleBotChart(app, "wordle-bot");
 
 export default app;
