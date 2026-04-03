@@ -21,8 +21,9 @@
 
   languages.typescript.enable = true;
 
+  languages.ansible.enable = true;
+
   packages = with pkgs; [
-    ansible
     backblaze-b2
     cdk8s-cli
     kubectl
@@ -50,6 +51,14 @@
     };
   };
 
+  tasks = {
+    "ansible:requirements" = {
+      exec = "ansible-galaxy collection install -r ansible/requirements.yml";
+      execIfModified = [ "ansible/requirements.yml" ];
+      after = [ "devenv:enterShell" ];
+    };
+  };
+
   git-hooks.hooks = {
     nixfmt.enable = true;
     check-shebang-scripts-are-executable.enable = true;
@@ -61,5 +70,4 @@
     trim-trailing-whitespace.enable = true;
     end-of-file-fixer.enable = true;
   };
-
 }

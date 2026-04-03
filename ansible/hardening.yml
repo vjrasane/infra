@@ -1,0 +1,12 @@
+---
+- name: Harden Linux hosts
+  hosts: all
+  become: yes
+  vars:
+    sysctl_overwrite:
+      net.ipv4.ip_forward: 1
+      net.bridge.bridge-nf-call-iptables: 1
+      net.bridge.bridge-nf-call-ip6tables: 1
+  roles:
+    - devsec.hardening.os_hardening
+    - devsec.hardening.ssh_hardening
