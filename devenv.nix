@@ -36,6 +36,20 @@
 
   scripts.b2.exec = "backblaze-b2 $@";
 
+  claude.code = {
+    enable = true;
+    mcpServers = {
+      kubernetes = {
+        type = "stdio";
+        command = "npx";
+        args = [
+          "-y"
+          "kubernetes-mcp-server@latest"
+        ];
+      };
+    };
+  };
+
   git-hooks.hooks = {
     nixfmt.enable = true;
     check-shebang-scripts-are-executable.enable = true;

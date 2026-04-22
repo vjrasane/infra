@@ -19,3 +19,4 @@ dist/
 # Build artifacts
 *.d.ts
 *.js
+.mcp.json

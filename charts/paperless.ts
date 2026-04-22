@@ -36,7 +36,7 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
       metadata: { name: namespace },
     });
 
-    const redis = new Deployment(this, "redis", {
+    const redisDeployment = new Deployment(this, "redis", {
       replicas: 1,
       containers: [
         {
@@ -52,7 +52,8 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
           },
         },
       ],
-    }).exposeViaService();
+    });
+    const redis = redisDeployment.exposeViaService();
 
     const oidcConfigSecret = new BitwardenOrgSecret(this, "oidc-config", {
       name: "oidc-config",
@@ -77,7 +78,7 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
       { path: "/usr/src/paperless/media", volume: mediaVolume },
     ];
 
-    const paperless = new Deployment(this, "paperless", {
+    const paperlessDeployment = new Deployment(this, "paperless", {
       replicas: 1,
       strategy: DeploymentStrategy.recreate(),
       containers: [
@@ -122,7 +123,10 @@ export class PaperlessChart extends BitwardenAuthTokenChart {
       ],
 
       volumes: [dataVolume, mediaVolume],
-    }).exposeViaService();
+    });
+    const paperless = paperlessDeployment.exposeViaService();
+
+    redisDeployment.scheduling.colocate(paperlessDeployment);
 
     SecureIngressRoute.fromService(this, "ingress", paperless, {
       hosts: props.hosts,

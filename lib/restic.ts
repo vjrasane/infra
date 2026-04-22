@@ -223,7 +223,7 @@ export const createSqliteVacuum = (
 ): ContainerProps => ({
   image: "keinos/sqlite3:latest",
   command: ["/bin/sh", "-c"],
-  args: [`sqlite3 ${dbPath} "VACUUM INTO '${backupPath}'"`],
+  args: [`rm -f ${backupPath} && sqlite3 ${dbPath} "VACUUM INTO '${backupPath}'"`],
   volumeMounts,
   securityContext: {
     ensureNonRoot: false,
