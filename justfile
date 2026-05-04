@@ -32,6 +32,12 @@ hooks:
 ansible target='all':
     ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbook.yml --limit {{target}}
 
+harden target='all':
+    ansible-playbook ansible/setup-linux-vm.yml --limit {{target}}
+
+deploy target='all':
+    ansible-playbook ansible/deploy.yml --limit {{target}}
+
 backup-psql:
     #!/usr/bin/env bash
     set -e

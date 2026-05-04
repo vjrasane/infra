@@ -1,0 +1,17 @@
+all:
+  vars:
+    tailscale_tailnet: tail222233.ts.net
+    ansible_python_interpreter: /usr/bin/python3
+  children:
+    oci:
+      hosts:
+        ocivm:
+          ansible_user: ubuntu
+
+    cloud:
+      children:
+        oci:
+
+    local:
+      hosts:
+

@@ -1,0 +1,171 @@
+---
+- name: Harden Linux hosts
+  hosts: all
+  become: yes
+  vars:
+    sysctl_overwrite:
+      net.ipv4.ip_forward: 1
+      net.bridge.bridge-nf-call-iptables: 1
+      net.bridge.bridge-nf-call-ip6tables: 1
+    ssh_server_ports: ['2222']
+    tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') }}"
+  pre_tasks:
+    - name: Apply security updates
+      apt:
+        upgrade: safe
+        update_cache: yes
+      tags: [hardening]
+
+    - name: Check if Tailscale is installed
+      command: which tailscale
+      register: tailscale_installed
+      failed_when: false
+      changed_when: false
+
+    - name: Install Tailscale
+      shell: curl -fsSL https://tailscale.com/install.sh | sh
+      when: tailscale_installed.rc != 0
+
+    - name: Check Tailscale status
+      command: tailscale status
+      register: tailscale_status
+      failed_when: false
+      changed_when: false
+
+    - name: Get Tailscale hostname
+      shell: tailscale status --self --json | grep -o '"HostName":"[^"]*"' | cut -d'"' -f4
+      register: tailscale_hostname
+      changed_when: false
+      when: tailscale_status.rc == 0
+
+    - name: Join Tailnet
+      shell: tailscale up --auth-key={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
+      when: tailscale_status.rc != 0 or (tailscale_hostname.stdout | default('')) != inventory_hostname
+
+    - name: Add local SSH keys
+      authorized_key:
+        user: "{{ ansible_user }}"
+        key: "{{ lookup('file', item) }}"
+        state: present
+      loop: "{{ lookup('fileglob', '~/.ssh/*.pub', wantlist=True) }}"
+      notify: Restart sshd
+  roles:
+    - role: devsec.hardening.os_hardening
+      tags: [hardening]
+    - role: devsec.hardening.ssh_hardening
+      tags: [hardening]
+  handlers:
+    - name: Restart sshd
+      service:
+        name: ssh
+        state: restarted
+
+- name: Install tools
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install restic
+      apt:
+        name: restic
+        state: present
+
+    - name: Check if resticprofile is installed
+      command: which resticprofile
+      register: resticprofile_installed
+      failed_when: false
+      changed_when: false
+
+    - name: Install resticprofile
+      shell: curl -sfL https://raw.githubusercontent.com/creativeprojects/resticprofile/master/install.sh | sh -s -- -b /usr/local/bin
+      when: resticprofile_installed.rc != 0
+
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+
+    - name: Add Docker GPG key
+      shell: install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc
+      args:
+        creates: /etc/apt/keyrings/docker.asc
+
+    - name: Add Docker repository
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" > /etc/apt/sources.list.d/docker.list
+      args:
+        creates: /etc/apt/sources.list.d/docker.list
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+- name: Harden OCI instances
+  hosts: oci
+  become: yes
+  tasks:
+    - name: Allow SSH on port 2222
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "2222"
+        ctstate: NEW
+        jump: ACCEPT
+        action: insert
+        rule_num: 5
+      notify: Save iptables rules
+
+    - name: Install netfilter-persistent
+      apt:
+        name: iptables-persistent
+        state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+  handlers:
+    - name: Save iptables rules
+      shell: netfilter-persistent save
+
+- name: Harden non-OCI cloud instances
+  hosts: cloud:!oci
+  become: yes
+  tasks:
+    - name: Install ufw
+      apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: "2222"
+
+    - name: Allow Tailscale UDP
+      ufw:
+        rule: allow
+        port: "41641"
+        proto: udp
+
+    - name: Allow all traffic on tailscale0
+      ufw:
+        rule: allow
+        interface: tailscale0
+        direction: in
+
+    - name: Enable ufw with default deny
+      ufw:
+        state: enabled
+        default: deny
+        direction: incoming

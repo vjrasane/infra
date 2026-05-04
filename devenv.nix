@@ -9,6 +9,7 @@
   # Disable helm plugins to avoid warnings polluting cdk8s helm template output
   env = {
     HELM_PLUGINS = "";
+    ANSIBLE_CONFIG = "ansible/ansible.cfg";
   };
 
   languages.javascript = {
@@ -31,8 +32,10 @@
     just
     samba
     bws
+    sops
     sqlite
     cook-cli
+    oci-cli
   ];
 
   scripts.b2.exec = "backblaze-b2 $@";
@@ -55,6 +58,11 @@
     "ansible:requirements" = {
       exec = "ansible-galaxy collection install -r ansible/requirements.yml";
       execIfModified = [ "ansible/requirements.yml" ];
+      after = [ "devenv:enterShell" ];
+    };
+    "sops:decrypt" = {
+      exec = "sops -d --output-type dotenv secrets.env > .env";
+      execIfModified = [ "secrets.env" ];
       after = [ "devenv:enterShell" ];
     };
   };

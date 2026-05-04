@@ -1,3 +1,5 @@
 ---
 collections:
   - name: devsec.hardening
+  - name: community.docker
+  - name: community.sops

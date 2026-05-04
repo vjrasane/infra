@@ -1,0 +1,76 @@
+---
+- name: Deploy Paperless
+  hosts: oci
+  tasks:
+    - name: Create data directories
+      file:
+        path: "{{ item }}"
+        state: directory
+      become: yes
+      loop:
+        - /mnt/data/paperless/data
+        - /mnt/data/paperless/media
+        - /mnt/data/paperless/export
+        - /mnt/data/paperless/consume
+        - /mnt/data/paperless/redis
+        - /mnt/data/traefik/letsencrypt
+
+    - name: Set data directory ownership
+      file:
+        path: /mnt/data
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        recurse: yes
+      become: yes
+
+    - name: Create directories
+      file:
+        path: "~/{{ item }}"
+        state: directory
+      loop:
+        - services
+        - scripts
+        - logs
+
+    - name: Copy compose file
+      copy:
+        src: ../compose/ocivm/docker-compose.yml
+        dest: ~/services/docker-compose.yml
+
+    - name: Decrypt and copy secrets
+      copy:
+        content: "{{ lookup('community.sops.sops', '../compose/ocivm/secrets.env') }}"
+        dest: ~/.env
+        mode: "0600"
+
+    - name: Symlink secrets to services dir
+      file:
+        src: ~/.env
+        dest: ~/services/.env
+        state: link
+        force: yes
+
+    - name: Source secrets in bashrc
+      lineinfile:
+        path: ~/.bashrc
+        line: "set -a; source ~/.env; set +a"
+        regexp: "^set -a; source ~/\\.env"
+
+    - name: Copy update-dns script
+      copy:
+        src: ../scripts/update-dns.sh
+        dest: ~/scripts/update-dns.sh
+        mode: "0755"
+
+- name: Setup DNS update cron
+      cron:
+        name: "update-dns-{{ item }}"
+        minute: "*/5"
+        job: "~/scripts/update-dns.sh {{ item }} >> ~/logs/update-dns.log 2>&1"
+      loop:
+        - paperless.karkki.org
+
+    - name: Start services
+      community.docker.docker_compose_v2:
+        project_src: ~/services
+        pull: always
