@@ -60,6 +60,37 @@
         name: ssh
         state: restarted
 
+- name: Mount data volume
+  hosts: all
+  become: yes
+  tags: [mount]
+  vars_prompt:
+    - name: data_device
+      prompt: "Block device to mount at /mnt/data (e.g. /dev/sdb). Leave empty to skip"
+      private: no
+      default: ""
+  tasks:
+    - name: Format device
+      filesystem:
+        fstype: ext4
+        dev: "{{ data_device }}"
+      when: data_device | length > 0
+
+    - name: Create mount point
+      file:
+        path: /mnt/data
+        state: directory
+      when: data_device | length > 0
+
+    - name: Mount and add to fstab
+      mount:
+        path: /mnt/data
+        src: "{{ data_device }}"
+        fstype: ext4
+        opts: defaults,nofail
+        state: mounted
+      when: data_device | length > 0
+
 - name: Install tools
   hosts: all
   become: yes
