@@ -147,6 +147,15 @@
   hosts: oci
   become: yes
   tasks:
+    - name: Allow all traffic on tailscale0
+      iptables:
+        chain: INPUT
+        in_interface: tailscale0
+        jump: ACCEPT
+        action: insert
+        rule_num: 5
+      notify: Save iptables rules
+
     - name: Allow SSH on port 2222
       iptables:
         chain: INPUT
@@ -155,7 +164,7 @@
         ctstate: NEW
         jump: ACCEPT
         action: insert
-        rule_num: 5
+        rule_num: 6
       notify: Save iptables rules
 
     - name: Install netfilter-persistent
