@@ -36,6 +36,7 @@
     sqlite
     cook-cli
     oci-cli
+    opentofu
   ];
 
   scripts.b2.exec = "backblaze-b2 $@";
@@ -54,15 +55,16 @@
     };
   };
 
+  enterShell = ''
+    set -a
+    source <(sops -d --output-type dotenv secrets.env)
+    set +a
+  '';
+
   tasks = {
     "ansible:requirements" = {
       exec = "ansible-galaxy collection install -r ansible/requirements.yml";
       execIfModified = [ "ansible/requirements.yml" ];
-      after = [ "devenv:enterShell" ];
-    };
-    "sops:decrypt" = {
-      exec = "sops -d --output-type dotenv secrets.env > .env";
-      execIfModified = [ "secrets.env" ];
       after = [ "devenv:enterShell" ];
     };
   };
