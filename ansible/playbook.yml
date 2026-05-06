@@ -3,12 +3,11 @@
   hosts: k3s
   become: yes
   tasks:
-    - name: Add local SSH keys
+    - name: Add SSH keys from GitHub
       authorized_key:
         user: "{{ ansible_user }}"
-        key: "{{ lookup('file', item) }}"
+        key: https://github.com/vjrasane.keys
         state: present
-      loop: "{{ lookup('fileglob', '~/.ssh/*.pub', wantlist=True) }}"
 
     - name: Disable password authentication
       lineinfile:

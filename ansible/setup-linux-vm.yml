@@ -42,12 +42,11 @@
       shell: tailscale up --auth-key={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
       when: tailscale_status.rc != 0 or (tailscale_hostname.stdout | default('')) != inventory_hostname
 
-    - name: Add local SSH keys
+    - name: Add SSH keys from GitHub
       authorized_key:
         user: "{{ ansible_user }}"
-        key: "{{ lookup('file', item) }}"
+        key: https://github.com/vjrasane.keys
         state: present
-      loop: "{{ lookup('fileglob', '~/.ssh/*.pub', wantlist=True) }}"
       notify: Restart sshd
   roles:
     - role: devsec.hardening.os_hardening
