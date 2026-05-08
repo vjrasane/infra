@@ -16,31 +16,34 @@
         update_cache: yes
       tags: [hardening]
 
-    - name: Check if Tailscale is installed
-      command: which tailscale
-      register: tailscale_installed
-      failed_when: false
-      changed_when: false
+    - name: Setup Tailscale
+      tags: [tailscale]
+      block:
+        - name: Check if Tailscale is installed
+          command: which tailscale
+          register: tailscale_installed
+          failed_when: false
+          changed_when: false
 
-    - name: Install Tailscale
-      shell: curl -fsSL https://tailscale.com/install.sh | sh
-      when: tailscale_installed.rc != 0
+        - name: Install Tailscale
+          shell: curl -fsSL https://tailscale.com/install.sh | sh
+          when: tailscale_installed.rc != 0
 
-    - name: Check Tailscale status
-      command: tailscale status
-      register: tailscale_status
-      failed_when: false
-      changed_when: false
+        - name: Check Tailscale status
+          command: tailscale status
+          register: tailscale_status
+          failed_when: false
+          changed_when: false
 
-    - name: Get Tailscale hostname
-      shell: tailscale status --self --json | grep -o '"HostName":"[^"]*"' | cut -d'"' -f4
-      register: tailscale_hostname
-      changed_when: false
-      when: tailscale_status.rc == 0
+        - name: Get Tailscale hostname
+          shell: tailscale status --self --json | grep -o '"HostName":"[^"]*"' | cut -d'"' -f4
+          register: tailscale_hostname
+          changed_when: false
+          when: tailscale_status.rc == 0
 
-    - name: Join Tailnet
-      shell: tailscale up --auth-key={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
-      when: tailscale_status.rc != 0 or (tailscale_hostname.stdout | default('')) != inventory_hostname
+        - name: Join Tailnet
+          shell: tailscale up --auth-key={{ tailscale_auth_key }} --hostname={{ inventory_hostname }}
+          when: tailscale_status.rc != 0 or (tailscale_hostname.stdout | default('')) != inventory_hostname
 
     - name: Add SSH keys from GitHub
       authorized_key:
@@ -63,32 +66,39 @@
   hosts: all
   become: yes
   tags: [mount]
-  vars_prompt:
-    - name: data_device
-      prompt: "Block device to mount at /mnt/data (e.g. /dev/sdb). Leave empty to skip"
-      private: no
-      default: ""
   tasks:
-    - name: Format device
-      filesystem:
-        fstype: ext4
-        dev: "{{ data_device }}"
-      when: data_device | length > 0
+    - name: Check if /mnt/data is a mount point
+      command: mountpoint -q /mnt/data
+      register: mnt_data_mounted
+      failed_when: false
+      changed_when: false
 
-    - name: Create mount point
-      file:
-        path: /mnt/data
-        state: directory
-      when: data_device | length > 0
+    - name: Prompt for block device
+      pause:
+        prompt: "Block device to mount at /mnt/data (e.g. /dev/sdb). Leave empty to skip"
+      register: data_device_prompt
+      when: mnt_data_mounted.rc != 0
 
-    - name: Mount and add to fstab
-      mount:
-        path: /mnt/data
-        src: "{{ data_device }}"
-        fstype: ext4
-        opts: defaults,nofail
-        state: mounted
-      when: data_device | length > 0
+    - name: Mount data volume
+      when: mnt_data_mounted.rc != 0 and (data_device_prompt.user_input | default('')) | length > 0
+      block:
+        - name: Format device
+          filesystem:
+            fstype: ext4
+            dev: "{{ data_device_prompt.user_input }}"
+
+        - name: Create mount point
+          file:
+            path: /mnt/data
+            state: directory
+
+        - name: Mount and add to fstab
+          mount:
+            path: /mnt/data
+            src: "{{ data_device_prompt.user_input }}"
+            fstype: ext4
+            opts: defaults,nofail
+            state: mounted
 
 - name: Install tools
   hosts: all

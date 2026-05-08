@@ -62,13 +62,13 @@
         dest: ~/profiles.yaml
 
     - name: Initialize restic repo
-      command: resticprofile paperless.init
+      shell: source ~/.env && resticprofile paperless.init
       register: restic_init
       changed_when: "'created' in restic_init.stderr"
       failed_when: false
 
     - name: Schedule resticprofile backup
-      command: resticprofile paperless.schedule
+      shell: source ~/.env && resticprofile paperless.unschedule; source ~/.env && resticprofile paperless.schedule
       changed_when: false
 
     - name: Copy update-dns script
