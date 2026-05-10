@@ -109,16 +109,6 @@
         name: restic
         state: present
 
-    - name: Check if resticprofile is installed
-      command: which resticprofile
-      register: resticprofile_installed
-      failed_when: false
-      changed_when: false
-
-    - name: Install resticprofile
-      shell: curl -sfL https://raw.githubusercontent.com/creativeprojects/resticprofile/master/install.sh | sh -s -- -b /usr/local/bin
-      when: resticprofile_installed.rc != 0
-
     - name: Install Docker prerequisites
       apt:
         name:

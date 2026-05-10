@@ -6,6 +6,7 @@
       file:
         path: "{{ item }}"
         state: directory
+      tags: [files]
       become: yes
       loop:
         - /mnt/data/paperless/data
@@ -21,21 +22,32 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         recurse: yes
+      tags: [files]
       become: yes
 
     - name: Create directories
       file:
         path: "~/{{ item }}"
         state: directory
+      tags: [files]
       loop:
         - services
         - scripts
         - logs
 
-    - name: Copy compose file
+    - name: Copy files
       copy:
-        src: ../hosts/ocivm/docker-compose.yml
-        dest: ~/services/docker-compose.yml
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: "{{ item.mode | default('0644') }}"
+      tags: [files, copy]
+      loop:
+        - src: ../scripts/update-dns.sh
+          dest: ~/scripts/update-dns.sh
+          mode: "0755"
+        - src: ../hosts/ocivm/paperless-backup.sh
+          dest: ~/scripts/paperless-backup.sh
+          mode: u+rwx
 
     - name: Decrypt and copy secrets
       copy:
@@ -50,42 +62,51 @@
         state: link
         force: yes
 
-    - name: Source secrets in bashrc
-      lineinfile:
-        path: ~/.bashrc
-        line: "set -a; source ~/.env; set +a"
-        regexp: "^set -a; source ~/\\.env"
-
-    - name: Copy resticprofile config
-      copy:
-        src: ../hosts/ocivm/profiles.yaml
-        dest: ~/profiles.yaml
-
-    - name: Initialize restic repo
-      shell: source ~/.env && resticprofile paperless.init
-      register: restic_init
-      changed_when: "'created' in restic_init.stderr"
-      failed_when: false
-
-    - name: Schedule resticprofile backup
-      shell: source ~/.env && resticprofile paperless.unschedule; source ~/.env && resticprofile paperless.schedule
-      changed_when: false
-
-    - name: Copy update-dns script
-      copy:
-        src: ../scripts/update-dns.sh
-        dest: ~/scripts/update-dns.sh
-        mode: "0755"
+    - name: Schedule restic backup via cron
+      tags: [cron, jobs]
+      cron:
+        name: "restic paperless backup"
+        minute: "0"
+        hour: "3"
+        job: "~/scripts/paperless-backup.sh >> ~/logs/paperless-backup.logs 2>&1"
 
     - name: Setup DNS update cron
       cron:
         name: "update-dns-{{ item }}"
         minute: "*/5"
         job: "~/scripts/update-dns.sh {{ item }} >> ~/logs/update-dns.log 2>&1"
+      tags: [cron, jobs]
       loop:
         - paperless.karkki.org
 
+    - name: Setup log rotation
+      copy:
+        dest: "/etc/logrotate.d/{{ item.name }}"
+        content: |
+          {{ item.path }} {
+              daily
+              rotate 7
+              compress
+              missingok
+              notifempty
+              copytruncate
+          }
+      become: yes
+      tags: [cron, jobs]
+      loop:
+        - name: paperless-backup
+          path: /home/ubuntu/logs/paperless-backup.logs
+        - name: update-dns
+          path: /home/ubuntu/logs/update-dns.log
+
+    - name: Copy docker compose file
+      copy:
+        src: ../hosts/ocivm/docker-compose.yml
+        dest: ~/services/docker-compose.yml
+      tags: [docker, files, copy]
+
     - name: Start services
+      tags: [docker]
       community.docker.docker_compose_v2:
         project_src: ~/services
         pull: always
