@@ -1,6 +1,11 @@
 ---
 - name: Deploy Paperless
-  hosts: oci
+  hosts: ocivm-a1
+  roles:
+    - role: cloudflare-dns
+      dns_records:
+        - name: paperless.karkki.org
+          ip_cmd: "$(tailscale ip -4)"
   tasks:
     - name: Create data directories
       file:
@@ -13,17 +18,22 @@
         - /mnt/data/paperless/media
         - /mnt/data/paperless/export
         - /mnt/data/paperless/consume
-        - /mnt/data/paperless/redis
         - /mnt/data/traefik/letsencrypt
 
     - name: Set data directory ownership
       file:
-        path: /mnt/data
+        path: "{{ item }}"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         recurse: yes
       tags: [files]
       become: yes
+      loop:
+        - /mnt/data/paperless/data
+        - /mnt/data/paperless/media
+        - /mnt/data/paperless/export
+        - /mnt/data/paperless/consume
+        - /mnt/data/traefik
 
     - name: Create directories
       file:
@@ -32,8 +42,6 @@
       tags: [files]
       loop:
         - services
-        - scripts
-        - logs
 
     - name: Copy files
       copy:
@@ -42,16 +50,13 @@
         mode: "{{ item.mode | default('0644') }}"
       tags: [files, copy]
       loop:
-        - src: ../scripts/update-dns.sh
-          dest: ~/scripts/update-dns.sh
-          mode: "0755"
-        - src: ../hosts/ocivm/paperless-backup.sh
+        - src: paperless-backup.sh
           dest: ~/scripts/paperless-backup.sh
           mode: u+rwx
 
     - name: Decrypt and copy secrets
       copy:
-        content: "{{ lookup('community.sops.sops', '../hosts/ocivm/secrets.env') }}"
+        content: "{{ lookup('community.sops.sops', 'secrets.env') }}"
         dest: ~/.env
         mode: "0600"
 
@@ -70,20 +75,11 @@
         hour: "3"
         job: "~/scripts/paperless-backup.sh >> ~/logs/paperless-backup.logs 2>&1"
 
-    - name: Setup DNS update cron
-      cron:
-        name: "update-dns-{{ item }}"
-        minute: "*/5"
-        job: "~/scripts/update-dns.sh {{ item }} >> ~/logs/update-dns.log 2>&1"
-      tags: [cron, jobs]
-      loop:
-        - paperless.karkki.org
-
-    - name: Setup log rotation
+    - name: Setup log rotation for paperless backup
       copy:
-        dest: "/etc/logrotate.d/{{ item.name }}"
+        dest: /etc/logrotate.d/paperless-backup
         content: |
-          {{ item.path }} {
+          {{ ansible_env.HOME }}/logs/paperless-backup.logs {
               daily
               rotate 7
               compress
@@ -93,15 +89,10 @@
           }
       become: yes
       tags: [cron, jobs]
-      loop:
-        - name: paperless-backup
-          path: /home/ubuntu/logs/paperless-backup.logs
-        - name: update-dns
-          path: /home/ubuntu/logs/update-dns.log
 
     - name: Copy docker compose file
       copy:
-        src: ../hosts/ocivm/docker-compose.yml
+        src: docker-compose.yml
         dest: ~/services/docker-compose.yml
       tags: [docker, files, copy]
 

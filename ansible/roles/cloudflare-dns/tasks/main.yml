@@ -1,0 +1,49 @@
+---
+- name: Create scripts directory
+  file:
+    path: ~/scripts
+    state: directory
+  tags: [files]
+
+- name: Create logs directory
+  file:
+    path: ~/logs
+    state: directory
+  tags: [files]
+
+- name: Copy update-dns script
+  copy:
+    src: update-dns.sh
+    dest: ~/scripts/update-dns.sh
+    mode: "0755"
+  tags: [files, copy]
+
+- name: Decrypt and copy Cloudflare secrets
+  copy:
+    content: "{{ lookup('community.sops.sops', 'cloudflare-secrets.env') }}"
+    dest: ~/.cloudflare.env
+    mode: "0600"
+  tags: [files]
+
+- name: Setup DNS update cron
+  cron:
+    name: "update-dns-{{ item.name }}"
+    minute: "{{ dns_update_interval }}"
+    job: "~/scripts/update-dns.sh {{ item.name }} {{ item.ip_cmd }} >> ~/logs/update-dns.log 2>&1"
+  loop: "{{ dns_records }}"
+  tags: [cron, jobs]
+
+- name: Setup log rotation
+  copy:
+    dest: /etc/logrotate.d/update-dns
+    content: |
+      {{ ansible_env.HOME }}/logs/update-dns.log {
+          daily
+          rotate 7
+          compress
+          missingok
+          notifempty
+          copytruncate
+      }
+  become: yes
+  tags: [cron, jobs]

@@ -2,6 +2,7 @@ services:
   traefik:
     image: traefik:v3
     restart: unless-stopped
+    container_name: traefik
     command:
       - --log.level=INFO
       - --providers.docker=true
@@ -51,7 +52,7 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+    container_name: redis
     cpus: 0.1
     mem_limit: 64m
-    volumes:
-      - /mnt/data/paperless/redis:/data
+    command: redis-server --save "" --appendonly no

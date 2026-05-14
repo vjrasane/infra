@@ -2,7 +2,9 @@
 set -euo pipefail
 
 # shellcheck source=/dev/null
+set -a
 source ~/.env
+set +a
 
 container_export_dir="/usr/src/paperless/export"
 host_export_dir="/mnt/data/paperless/export"

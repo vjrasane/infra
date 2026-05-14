@@ -2,6 +2,7 @@
 - name: Harden Linux hosts
   hosts: all
   become: yes
+  tags: [setup]
   vars:
     sysctl_overwrite:
       net.ipv4.ip_forward: 1
@@ -46,11 +47,13 @@
           when: tailscale_status.rc != 0 or (tailscale_hostname.stdout | default('')) != inventory_hostname
 
     - name: Add SSH keys from GitHub
+      tags: [ssh]
       authorized_key:
         user: "{{ ansible_user }}"
         key: https://github.com/vjrasane.keys
         state: present
       notify: Restart sshd
+
   roles:
     - role: devsec.hardening.os_hardening
       tags: [hardening]
@@ -65,7 +68,7 @@
 - name: Mount data volume
   hosts: all
   become: yes
-  tags: [mount]
+  tags: [setup, mount]
   tasks:
     - name: Check if /mnt/data is a mount point
       command: mountpoint -q /mnt/data
@@ -103,6 +106,7 @@
 - name: Install tools
   hosts: all
   become: yes
+  tags: [setup]
   tasks:
     - name: Install restic
       apt:
@@ -146,6 +150,7 @@
 - name: Harden OCI instances
   hosts: oci
   become: yes
+  tags: [setup, hardening]
   tasks:
     - name: Allow all traffic on tailscale0
       iptables:
@@ -180,6 +185,7 @@
 - name: Harden non-OCI cloud instances
   hosts: cloud:!oci
   become: yes
+  tags: [setup, hardening]
   tasks:
     - name: Install ufw
       apt:

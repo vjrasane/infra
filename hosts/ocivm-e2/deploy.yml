@@ -1,0 +1,41 @@
+---
+- name: Deploy on ocivm-e2
+  hosts: ocivm-e2
+  roles:
+    - role: cloudflare-dns
+      dns_records:
+        - name: paperless.karkki.org
+          ip_cmd: "$(tailscale ip -4)"
+  tasks:
+    - name: Create directories
+      file:
+        path: "~/{{ item }}"
+        state: directory
+      tags: [files]
+      loop:
+        - services
+
+    - name: Decrypt and copy secrets
+      copy:
+        content: "{{ lookup('community.sops.sops', 'secrets.env') }}"
+        dest: ~/.env
+        mode: "0600"
+
+    - name: Symlink secrets to services dir
+      file:
+        src: ~/.env
+        dest: ~/services/.env
+        state: link
+        force: yes
+
+    - name: Copy docker compose file
+      copy:
+        src: docker-compose.yml
+        dest: ~/services/docker-compose.yml
+      tags: [docker, files, copy]
+
+    - name: Start services
+      tags: [docker]
+      community.docker.docker_compose_v2:
+        project_src: ~/services
+        pull: always

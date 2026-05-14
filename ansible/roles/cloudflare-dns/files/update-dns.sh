@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # shellcheck source=/dev/null
-source ~/.env
+source ~/.cloudflare.env
 
-RECORD_NAME=${1:?Usage: $0 <record-name>}
-IP=$(tailscale ip -4)
+RECORD_NAME=${1:?Usage: $0 <record-name> <ip>}
+IP=${2:?Usage: $0 <record-name> <ip>}
 
 RECORD=$(curl -sf \
 	-H "Authorization: Bearer $CF_DNS_API_TOKEN" \

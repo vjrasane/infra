@@ -5,7 +5,9 @@ all:
   children:
     oci:
       hosts:
-        ocivm:
+        ocivm-a1:
+          ansible_user: ubuntu
+        ocivm-e2:
           ansible_user: ubuntu
 
     cloud:
