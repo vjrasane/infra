@@ -16,3 +16,5 @@ all:
 
     local:
       hosts:
+        rpi5-01:
+          ansible_user: vjrasane

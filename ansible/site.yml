@@ -2,3 +2,4 @@
 - import_playbook: setup-linux-vm.yml
 - import_playbook: ../hosts/ocivm-a1/deploy.yml
 - import_playbook: ../hosts/ocivm-e2/deploy.yml
+- import_playbook: ../hosts/rpi5-01/deploy.yml

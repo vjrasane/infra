@@ -1,0 +1,51 @@
+services:
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    container_name: traefik
+    command:
+      - --log.level=INFO
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    ports:
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    volumes:
+      - ./jellyfin-config:/config
+      - ../shared/media/music:/data/music
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      # - JELLYFIN_PublishedServerUrl=192.168.0.5 #optional
+      # extra_hosts:
+      #   - "host.docker.internal:host-gateway"
+    ports:
+      - 8096:8096
+      - 8920:8920 #optional
+      - 7359:7359/udp #optional
+      - 1900:1900/udp #optional
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.paperless.rule: Host(`jellyfin.karkki.org`)
+      traefik.http.routers.paperless.entrypoints: websecure
+      traefik.http.routers.paperless.tls.certresolver: letsencrypt
+      traefik.http.services.paperless.loadbalancer.server.port: "8096"
+
+volumes:
+  traefik-letsencrypt:
+    name: traefik-letsencrypt

@@ -1,11 +1,11 @@
 ---
-- name: Deploy Paperless
-  hosts: ocivm-a1
+- name: Deploy Jellyfin
+  hosts: rpi5-01
   roles:
     - role: cloudflare-dns
       dns_records:
-        - name: paperless.karkki.org
-          ip_cmd: "$(tailscale ip -4)"
+        - name: jellyfin.karkki.org
+          ip_cmd: "$(curl ipinfo.io/ip)"
   tasks:
     - name: Create data directories
       file:
@@ -13,11 +13,7 @@
         state: directory
       tags: [files]
       become: yes
-      loop:
-        - /mnt/data/paperless/data
-        - /mnt/data/paperless/media
-        - /mnt/data/paperless/export
-        - /mnt/data/paperless/consume
+      loop: []
 
     - name: Set data directory ownership
       file:
@@ -27,11 +23,7 @@
         recurse: yes
       tags: [files]
       become: yes
-      loop:
-        - /mnt/data/paperless/data
-        - /mnt/data/paperless/media
-        - /mnt/data/paperless/export
-        - /mnt/data/paperless/consume
+      loop: []
 
     - name: Create services directory
       file:
@@ -46,8 +38,8 @@
         mode: "{{ item.mode | default('0644') }}"
       tags: [files, copy]
       loop:
-        - src: paperless-backup.sh
-          dest: ~/scripts/paperless-backup.sh
+        - src: jellyfin-backup.sh
+          dest: ~/scripts/jellyfin-backup.sh
           mode: u+rwx
 
     - name: Decrypt and copy secrets
@@ -74,16 +66,16 @@
     - name: Schedule restic backup via cron
       tags: [cron, jobs]
       cron:
-        name: "restic paperless backup"
+        name: "restic jellyfin backup"
         minute: "0"
         hour: "3"
-        job: "~/scripts/paperless-backup.sh >> ~/logs/paperless-backup.logs 2>&1"
+        job: "~/scripts/jellyfin-backup.sh >> ~/logs/jellyfin-backup.logs 2>&1"
 
-    - name: Setup log rotation for paperless backup
+    - name: Setup log rotation for jellyfin backup
       copy:
-        dest: /etc/logrotate.d/paperless-backup
+        dest: /etc/logrotate.d/jellyfin-backup
         content: |
-          {{ ansible_facts["env"]["HOME"] }}/logs/paperless-backup.logs {
+          {{ ansible_facts["env"]["HOME"] }}/logs/jellyfin-backup.logs {
               daily
               rotate 7
               compress

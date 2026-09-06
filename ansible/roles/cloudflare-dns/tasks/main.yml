@@ -1,4 +1,10 @@
 ---
+- name: Install dependencies
+  become: true
+  package:
+    name: jq
+    state: present
+
 - name: Create scripts directory
   file:
     path: ~/scripts
