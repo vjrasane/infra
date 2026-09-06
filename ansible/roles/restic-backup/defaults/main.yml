@@ -1,0 +1,4 @@
+---
+restic_host: "restic"
+backup_dirs: []
+hour: "3"

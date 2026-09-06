@@ -1,11 +1,16 @@
 ---
-- name: Deploy Jellyfin
+- name: Deploy services
   hosts: rpi5-01
   roles:
     - role: cloudflare-dns
       dns_records:
         - name: jellyfin.karkki.org
           ip_cmd: "$(curl ipinfo.io/ip)"
+    - role: restic-backup
+      restic_host: jellyfin
+      backup_dirs:
+        - "~/shared/media/music"
+        - "~/services/jellyfin-config"
   tasks:
     - name: Create data directories
       file:
@@ -31,17 +36,6 @@
         state: directory
       tags: [files, secrets, docker]
 
-    - name: Copy files
-      copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        mode: "{{ item.mode | default('0644') }}"
-      tags: [files, copy]
-      loop:
-        - src: jellyfin-backup.sh
-          dest: ~/scripts/jellyfin-backup.sh
-          mode: u+rwx
-
     - name: Decrypt and copy secrets
       copy:
         content: "{{ lookup('community.sops.sops', 'secrets.env') }}"
@@ -57,35 +51,6 @@
         force: yes
       tags: [files, secrets, docker]
 
-    - name: Create logs directory
-      file:
-        path: "~/logs"
-        state: directory
-      tags: [cron, jobs]
-
-    - name: Schedule restic backup via cron
-      tags: [cron, jobs]
-      cron:
-        name: "restic jellyfin backup"
-        minute: "0"
-        hour: "3"
-        job: "~/scripts/jellyfin-backup.sh >> ~/logs/jellyfin-backup.logs 2>&1"
-
-    - name: Setup log rotation for jellyfin backup
-      copy:
-        dest: /etc/logrotate.d/jellyfin-backup
-        content: |
-          {{ ansible_facts["env"]["HOME"] }}/logs/jellyfin-backup.logs {
-              daily
-              rotate 7
-              compress
-              missingok
-              notifempty
-              copytruncate
-          }
-      become: yes
-      tags: [cron, jobs]
-
     - name: Copy docker compose file
       copy:
         src: docker-compose.yml
@@ -95,6 +60,9 @@
     - name: Start services
       tags: [docker]
       community.docker.docker_compose_v2:
+        services:
+          - traefik
+          - jellyfin
         project_src: ~/services
         pull: always
 

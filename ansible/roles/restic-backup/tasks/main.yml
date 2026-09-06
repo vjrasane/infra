@@ -1,0 +1,42 @@
+---
+- name: Create scripts directory
+  file:
+    path: ~/scripts
+    state: directory
+  tags: [files]
+
+- name: Create logs directory
+  file:
+    path: ~/logs
+    state: directory
+  tags: [files]
+
+- name: Copy backup script
+  copy:
+    src: restic-backup.sh
+    dest: ~/scripts/restic-backup.sh
+    mode: u+rwx
+  tags: [files, copy]
+
+- name: Schedule restic backup via cron
+  cron:
+      name: "{{ restic_host }} backup"
+      job: "set -a; source ~/.env; ~/scripts/restic-backup.sh {{ restic_host }} {{ backup_dirs | join(' ') }} >> ~/logs/{{ restic_host }}-backup.logs 2>&1"
+      hour: "{{ hour | default('3') }}"
+      minute: "0"
+  tags: [cron, jobs]
+
+- name: Setup log rotation for restic backup
+  copy:
+    dest: "/etc/logrotate.d/{{ restic_host }}-backup"
+    content: |
+      {{ ansible_facts["env"]["HOME"] }}/logs/{{ restic_host }}-backup.logs {
+          daily
+          rotate 7
+          compress
+          missingok
+          notifempty
+          copytruncate
+      }
+  become: yes
+  tags: [cron, jobs]
