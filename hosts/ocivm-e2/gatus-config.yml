@@ -1,0 +1,20 @@
+storage:
+  type: sqlite
+  path: /data/gatus.db
+
+endpoints:
+  - name: Paperless
+    group: services
+    url: https://paperless.karkki.org
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 3000"
+      - "[CERTIFICATE_EXPIRATION] > 72h"
+
+  - name: Gatus
+    group: services
+    url: https://gatus.karkki.org
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"

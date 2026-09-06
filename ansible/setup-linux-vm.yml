@@ -1,21 +1,15 @@
 ---
-- name: Harden Linux hosts
+- name: Setup Linux hosts
   hosts: all
   become: yes
   tags: [setup]
   vars:
-    sysctl_overwrite:
-      net.ipv4.ip_forward: 1
-      net.bridge.bridge-nf-call-iptables: 1
-      net.bridge.bridge-nf-call-ip6tables: 1
-    ssh_server_ports: ['2222']
     tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') }}"
-  pre_tasks:
+  tasks:
     - name: Apply security updates
       apt:
         upgrade: safe
         update_cache: yes
-      tags: [hardening]
 
     - name: Setup Tailscale
       tags: [tailscale]
@@ -37,7 +31,7 @@
           changed_when: false
 
         - name: Get Tailscale hostname
-          shell: tailscale status --self --json | grep -o '"HostName":"[^"]*"' | cut -d'"' -f4
+          shell: tailscale status --self --json | jq -r '.Self.HostName'
           register: tailscale_hostname
           changed_when: false
           when: tailscale_status.rc == 0
@@ -52,18 +46,6 @@
         user: "{{ ansible_user }}"
         key: https://github.com/vjrasane.keys
         state: present
-      notify: Restart sshd
-
-  roles:
-    - role: devsec.hardening.os_hardening
-      tags: [hardening]
-    - role: devsec.hardening.ssh_hardening
-      tags: [hardening]
-  handlers:
-    - name: Restart sshd
-      service:
-        name: ssh
-        state: restarted
 
 - name: Mount data volume
   hosts: all
@@ -147,10 +129,13 @@
         groups: docker
         append: yes
 
+    - name: Reset connection for group changes
+      meta: reset_connection
+
 - name: Harden OCI instances
   hosts: oci
   become: yes
-  tags: [setup, hardening]
+  tags: [setup, hardening, ports]
   tasks:
     - name: Allow all traffic on tailscale0
       iptables:
@@ -159,6 +144,15 @@
         jump: ACCEPT
         action: insert
         rule_num: 5
+      notify: Save iptables rules
+
+    - name: Allow traffic from docker network
+      iptables:
+        chain: INPUT
+        source: 172.16.0.0/12
+        jump: ACCEPT
+        action: insert
+        rule_num: 6
       notify: Save iptables rules
 
     - name: Allow SSH on port 2222
@@ -185,7 +179,7 @@
 - name: Harden non-OCI cloud instances
   hosts: cloud:!oci
   become: yes
-  tags: [setup, hardening]
+  tags: [setup, hardening, ports]
   tasks:
     - name: Install ufw
       apt:
@@ -214,3 +208,22 @@
         state: enabled
         default: deny
         direction: incoming
+
+- name: Harden Linux hosts
+  hosts: all
+  become: yes
+  tags: [setup, hardening]
+  vars:
+    sysctl_overwrite:
+      net.ipv4.ip_forward: 1
+      net.bridge.bridge-nf-call-iptables: 1
+      net.bridge.bridge-nf-call-ip6tables: 1
+    ssh_server_ports: ['2222']
+  roles:
+    - role: devsec.hardening.os_hardening
+    - role: devsec.hardening.ssh_hardening
+  handlers:
+    - name: Restart sshd
+      service:
+        name: ssh
+        state: restarted

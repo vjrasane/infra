@@ -18,7 +18,6 @@
         - /mnt/data/paperless/media
         - /mnt/data/paperless/export
         - /mnt/data/paperless/consume
-        - /mnt/data/traefik/letsencrypt
 
     - name: Set data directory ownership
       file:
@@ -33,15 +32,12 @@
         - /mnt/data/paperless/media
         - /mnt/data/paperless/export
         - /mnt/data/paperless/consume
-        - /mnt/data/traefik
 
-    - name: Create directories
+    - name: Create services directory
       file:
-        path: "~/{{ item }}"
+        path: "~/services"
         state: directory
-      tags: [files]
-      loop:
-        - services
+      tags: [files, secrets, docker]
 
     - name: Copy files
       copy:
@@ -59,6 +55,7 @@
         content: "{{ lookup('community.sops.sops', 'secrets.env') }}"
         dest: ~/.env
         mode: "0600"
+      tags: [files, copy, secrets, docker]
 
     - name: Symlink secrets to services dir
       file:
@@ -66,6 +63,13 @@
         dest: ~/services/.env
         state: link
         force: yes
+      tags: [files, secrets, docker]
+      
+    - name: Create logs directory
+      file:
+        path: "~/logs"
+        state: directory
+      tags: [cron, jobs]
 
     - name: Schedule restic backup via cron
       tags: [cron, jobs]
@@ -79,7 +83,7 @@
       copy:
         dest: /etc/logrotate.d/paperless-backup
         content: |
-          {{ ansible_env.HOME }}/logs/paperless-backup.logs {
+          {{ ansible_facts["env"]["HOME"] }}/logs/paperless-backup.logs {
               daily
               rotate 7
               compress
@@ -101,3 +105,23 @@
       community.docker.docker_compose_v2:
         project_src: ~/services
         pull: always
+
+    - name: Remove traefik container after DNS update
+      community.docker.docker_container:
+        name: traefik
+        state: absent
+      when: dns_changed | default(false)
+      tags: [docker]
+
+    - name: Remove traefik letsencrypt volume
+      community.docker.docker_volume:
+        name: traefik-letsencrypt
+        state: absent
+      when: dns_changed | default(false)
+      tags: [docker]
+
+    - name: Recreate traefik after DNS update
+      community.docker.docker_compose_v2:
+        project_src: ~/services
+      when: dns_changed | default(false)
+      tags: [docker]

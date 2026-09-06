@@ -17,6 +17,7 @@
     dest: ~/scripts/update-dns.sh
     mode: "0755"
   tags: [files, copy]
+  register: dns_script
 
 - name: Decrypt and copy Cloudflare secrets
   copy:
@@ -32,12 +33,22 @@
     job: "~/scripts/update-dns.sh {{ item.name }} {{ item.ip_cmd }} >> ~/logs/update-dns.log 2>&1"
   loop: "{{ dns_records }}"
   tags: [cron, jobs]
+  register: dns_cron
+
+- name: Run DNS update now
+  shell: "~/scripts/update-dns.sh {{ item.name }} {{ item.ip_cmd }}"
+  loop: "{{ dns_records }}"
+  when: dns_script is changed or dns_cron is changed
+
+- name: Set DNS changed fact
+  set_fact:
+    dns_changed: "{{ dns_script is changed or dns_cron is changed }}"
 
 - name: Setup log rotation
   copy:
     dest: /etc/logrotate.d/update-dns
     content: |
-      {{ ansible_env.HOME }}/logs/update-dns.log {
+      {{ ansible_facts["env"]["HOME"] }}/logs/update-dns.log {
           daily
           rotate 7
           compress

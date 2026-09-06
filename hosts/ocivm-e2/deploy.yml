@@ -1,25 +1,24 @@
 ---
-- name: Deploy on ocivm-e2
+- name: Deploy Gatus
   hosts: ocivm-e2
   roles:
     - role: cloudflare-dns
       dns_records:
-        - name: paperless.karkki.org
+        - name: gatus.karkki.org
           ip_cmd: "$(tailscale ip -4)"
   tasks:
-    - name: Create directories
+    - name: Create services directory
       file:
-        path: "~/{{ item }}"
+        path: "~/services"
         state: directory
-      tags: [files]
-      loop:
-        - services
+      tags: [files, secrets, docker]
 
     - name: Decrypt and copy secrets
       copy:
         content: "{{ lookup('community.sops.sops', 'secrets.env') }}"
         dest: ~/.env
         mode: "0600"
+      tags: [files, secrets, docker]
 
     - name: Symlink secrets to services dir
       file:
@@ -27,15 +26,42 @@
         dest: ~/services/.env
         state: link
         force: yes
+      tags: [files, secrets, docker]
 
     - name: Copy docker compose file
       copy:
         src: docker-compose.yml
         dest: ~/services/docker-compose.yml
-      tags: [docker, files, copy]
+      tags: [docker, files]
+
+    - name: Copy gatus config
+      copy:
+        src: gatus-config.yml
+        dest: ~/services/gatus-config.yml
+      tags: [docker, files]
 
     - name: Start services
-      tags: [docker]
       community.docker.docker_compose_v2:
         project_src: ~/services
         pull: always
+      tags: [docker]
+
+    - name: Remove traefik container after DNS update
+      community.docker.docker_container:
+        name: traefik
+        state: absent
+      when: dns_changed | default(false)
+      tags: [docker]
+
+    - name: Remove traefik letsencrypt volume
+      community.docker.docker_volume:
+        name: traefik-letsencrypt
+        state: absent
+      when: dns_changed | default(false)
+      tags: [docker]
+
+    - name: Recreate traefik after DNS update
+      community.docker.docker_compose_v2:
+        project_src: ~/services
+      when: dns_changed | default(false)
+      tags: [docker]

@@ -18,7 +18,7 @@ services:
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /mnt/data/traefik/letsencrypt:/letsencrypt
+      - traefik-letsencrypt:/letsencrypt
 
   paperless:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
@@ -56,3 +56,7 @@ services:
     cpus: 0.1
     mem_limit: 64m
     command: redis-server --save "" --appendonly no
+
+volumes:
+  traefik-letsencrypt:
+    name: traefik-letsencrypt
