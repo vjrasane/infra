@@ -36,7 +36,7 @@
   cron:
     name: "update-dns-{{ item.name }}"
     minute: "{{ dns_update_interval }}"
-    job: "~/scripts/update-dns.sh {{ item.name }} {{ item.ip_cmd }} >> ~/logs/update-dns.log 2>&1"
+    job: "~/scripts/update-dns.sh {{ item.name }} {{ item.ip_cmd }} {{ proxied }} >> ~/logs/update-dns.log 2>&1"
   loop: "{{ dns_records }}"
   tags: [cron, jobs]
   register: dns_cron

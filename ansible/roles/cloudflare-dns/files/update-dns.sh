@@ -4,8 +4,11 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source ~/.cloudflare.env
 
-RECORD_NAME=${1:?Usage: $0 <record-name> <ip>}
-IP=${2:?Usage: $0 <record-name> <ip>}
+USAGE="Usage: $0 <record-name> <ip> <proxied>"
+
+RECORD_NAME=${1:?$USAGE}
+IP=${2:?$USAGE}
+PROXIED=${3:-false}
 
 RECORD=$(curl -sf \
 	-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
@@ -22,14 +25,21 @@ if [ -z "$RECORD_ID" ]; then
 	curl -sf -X POST \
 		-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
 		-H "Content-Type: application/json" \
-		-d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":true}" \
+		- -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":false}" \
+		+ -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":true}" \
+		"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" >/dev/null
+	echo "Created $RECORD_NAME -> $IP"
+	curl -sf -X POST \
+		-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
+		-H "Content-Type: application/json" \
+		-d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":$PROXIED}" \
 		"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" >/dev/null
 	echo "Created $RECORD_NAME -> $IP"
 else
 	curl -sf -X PUT \
 		-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
 		-H "Content-Type: application/json" \
-		-d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":true}" \
+		-d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":$PROXIED}" \
 		"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/$RECORD_ID" >/dev/null
 	echo "Updated $RECORD_NAME: $CURRENT_IP -> $IP"
 fi

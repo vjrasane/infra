@@ -1,3 +1,4 @@
 ---
 dns_records: []
 dns_update_interval: "*/5"
+proxied: false

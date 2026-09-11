@@ -6,6 +6,7 @@
       dns_records:
         - name: jellyfin.karkki.org
           ip_cmd: "$(curl ipinfo.io/ip)"
+      proxied: true
     - role: restic-backup
       restic_host: jellyfin
       backup_dirs:
