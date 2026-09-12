@@ -7,10 +7,10 @@
 
 - name: Install dependencies
   become: true
-  package:
+  ansible.builtin.package:
     name: "{{ item }}"
     state: present
-  loop: "{{ [ cronjob_deps ] | flatten(levels=1) }}"
+  loop: "{{ [cronjob_deps] | flatten(levels=1) }}"
 
 - name: Create directories
   ansible.builtin.file:
@@ -40,7 +40,7 @@
 
 - name: Setup cron
   ansible.builtin.cron:
-    name: "{{ cronjob_name }}"
+    name: "{{ cronjob_name }} {{ cronjob_args }}"
     minute: "{{ cronjob_minute | default('*') }}"
     hour: "{{ cronjob_hour | default('*') }}"
     day: "{{ cronjob_day | default('*') }}"

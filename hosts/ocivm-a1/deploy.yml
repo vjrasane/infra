@@ -3,9 +3,8 @@
   hosts: ocivm-a1
   roles:
     - role: cloudflare-dns
-      dns_records:
-        - name: paperless.karkki.org
-          ip_cmd: "$(tailscale ip -4)"
+      dns_records: paperless.karkki.org
+      ip_cmd: "$(tailscale ip -4)"
     - role: cronjob
       cronjob_name: paperless-export
       cronjob_script: "{{ playbook_dir }}/paperless-export.sh"

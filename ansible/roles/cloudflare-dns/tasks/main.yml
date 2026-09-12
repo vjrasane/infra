@@ -1,4 +1,10 @@
 ---
+- name: Validate
+  ansible.builtin.assert:
+    that:
+      - dns_records | length > 0
+      - ip_cmd | length > 0
+
 - name: Set facts
   ansible.builtin.set_fact:
     update_dns_job: update-dns
@@ -13,11 +19,11 @@
     cronjob_script: "{{ update_dns_script }}"
     cronjob_env_file: "{{ update_dns_secrets }}"
     cronjob_deps: jq
-    cronjob_args: "{{ rec.name }} {{ rec.ip_cmd }} {{ proxied | ternary('true','false') }}"
-  loop: "{{ dns_records }}"
+    cronjob_args: "{{ rec }} {{ ip_cmd }} {{ proxied | ternary('true', 'false') }}"
+  loop: "{{ [dns_records] | flatten(levels=1) }}"
   loop_control:
     loop_var: rec
-    label: "{{ rec.name }}"
+    label: "{{ rec }}"
 
 - name: Set DNS changed fact
   ansible.builtin.set_fact:
@@ -26,14 +32,10 @@
 - name: Run DNS update now
   ansible.builtin.shell: >-
     set -a; . ~/scripts/{{ update_dns_job }}.env; set +a;
-    ~/scripts/{{ update_dns_job }}.sh {{ item }}
-  loop: "{{ update_dns_args }}"
-  when: dns_changed
-  changed_when: true
-
-- name: Get Cloudflare IPs now
-  ansible.builtin.shell:
-    set -a; . ~/scripts/{{ get_cloudflare_ips_job }}.env; set +a;
-    ~/scripts/{{ get_cloudflare_ips_job }}.sh
+    ~/scripts/{{ update_dns_job }}.sh {{ rec }} {{ ip_cmd }} {{ proxied | ternary('true', 'false') }}
+  loop: "{{ [dns_records] | flatten(levels=1) }}"
+  loop_control:
+    loop_var: rec
+    label: "{{ rec }}"
   when: dns_changed
   changed_when: true

@@ -8,35 +8,35 @@ IP=${2:?$USAGE}
 PROXIED=${3:-false}
 
 RECORD=$(curl -sf \
-  -H "Authorization: Bearer $CF_DNS_API_TOKEN" \
-  "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$RECORD_NAME&type=A")
+	-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
+	"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=$RECORD_NAME&type=A")
 
 RECORD_ID=$(echo "$RECORD" | jq -r '.result[0].id // empty')
 CURRENT_IP=$(echo "$RECORD" | jq -r '.result[0].content // empty')
 
 if [ "$CURRENT_IP" = "$IP" ]; then
-  exit 0
+	exit 0
 fi
 
 if [ -z "$RECORD_ID" ]; then
-  curl -sf -X POST \
-    -H "Authorization: Bearer $CF_DNS_API_TOKEN" \
-    -H "Content-Type: application/json" \
-    - -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":false}" \
-    + -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":true}" \
-    "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" >/dev/null
-  echo "Created $RECORD_NAME -> $IP"
-  curl -sf -X POST \
-    -H "Authorization: Bearer $CF_DNS_API_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":$PROXIED}" \
-    "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" >/dev/null
-  echo "Created $RECORD_NAME -> $IP"
+	curl -sf -X POST \
+		-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
+		-H "Content-Type: application/json" \
+		- -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":false}" \
+		+ -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":true}" \
+		"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" >/dev/null
+	echo "Created $RECORD_NAME -> $IP"
+	curl -sf -X POST \
+		-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
+		-H "Content-Type: application/json" \
+		-d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":$PROXIED}" \
+		"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" >/dev/null
+	echo "Created $RECORD_NAME -> $IP"
 else
-  curl -sf -X PUT \
-    -H "Authorization: Bearer $CF_DNS_API_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":$PROXIED}" \
-    "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/$RECORD_ID" >/dev/null
-  echo "Updated $RECORD_NAME: $CURRENT_IP -> $IP"
+	curl -sf -X PUT \
+		-H "Authorization: Bearer $CF_DNS_API_TOKEN" \
+		-H "Content-Type: application/json" \
+		-d "{\"type\":\"A\",\"name\":\"$RECORD_NAME\",\"content\":\"$IP\",\"proxied\":$PROXIED}" \
+		"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/$RECORD_ID" >/dev/null
+	echo "Updated $RECORD_NAME: $CURRENT_IP -> $IP"
 fi

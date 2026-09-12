@@ -3,9 +3,8 @@
   hosts: ocivm-e2
   roles:
     - role: cloudflare-dns
-      dns_records:
-        - name: gatus.karkki.org
-          ip_cmd: "$(tailscale ip -4)"
+      dns_records: gatus.karkki.org
+      ip_cmd: "$(tailscale ip -4)"
   tasks:
     - name: Create services directory
       file:

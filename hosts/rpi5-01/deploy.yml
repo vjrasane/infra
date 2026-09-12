@@ -6,15 +6,16 @@
     cloudflare_ips_env_file: ~/services/cloudflare-ips.env
   roles:
     - role: cloudflare-dns
-      dns_records:
-        - name: jellyfin.karkki.org
-          ip_cmd: "$(curl ipinfo.io/ip)"
+      dns_records: jellyfin.karkki.org
+      ip_cmd: "$(curl ipinfo.io/ip)"
       proxied: true
     - role: cronjob
-      cronjob_name: "{{ get_cloudflare_ips_job }}"
-      cronjob_script: "{{ playbook_dir }}/get-cloudflare-ips.sh"
-      cronjob_args: "{{ cloudflare_ips_env_file }}"
+      cronjob_name: set-cloudflare-firewall
+      cronjob_script: "{{ playbook_dir }}/set-cloudflare-firewall.sh"
+      cronjob_args: "443 192.168.1.0/24 100.64.0.0/10"
       cronjob_deps: curl
+      cronjob_hour: "2"
+      cronjob_minute: "0"
     - role: restic-backup
       restic_host: jellyfin
       restic_env_file: "{{ playbook_dir }}/secrets.env"
@@ -95,7 +96,3 @@
         project_src: ~/services
       when: dns_changed | default(false)
       tags: [docker]
-
-
-
-

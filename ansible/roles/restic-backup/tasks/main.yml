@@ -1,7 +1,7 @@
 ---
 - name: Validate
   ansible.builtin.assert:
-    that: 
+    that:
       - restic_host | length > 0
       - restic_env_file | length > 0
       - restic_backup_dirs | length > 0
@@ -19,4 +19,3 @@
     cronjob_env_file: "{{ restic_env_file }}"
     cronjob_minute: "0"
     cronjob_hour: "{{ restic_backup_hour | default('3') }}"
-

@@ -1,4 +1,4 @@
 ---
 dns_records: []
-dns_update_interval: "*/5"
+ip_cmd: ""
 proxied: false
