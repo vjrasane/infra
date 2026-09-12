@@ -1,8 +1,8 @@
-job_name: ""                 
-job_script: ""
-job_deps: []
-job_args: ""
-job_minute: "*/5"
-job_hour: "*"
-job_day: "*"
-job_env_file: null
+cronjob_name: ""
+cronjob_script: ""
+cronjob_deps: []
+cronjob_args: ""
+cronjob_minute: "*/5"
+cronjob_hour: "*"
+cronjob_day: "*"
+cronjob_env_file: null

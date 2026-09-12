@@ -13,10 +13,10 @@
 
 - include_role: { name: cronjob }
   vars:
-    job_name: "{{ restic_backup_job }}"
-    job_script: "{{ restic_backup_script }}"
-    job_args: "{{ restic_host }} {{ restic_backup_dirs | join(' ') }}" 
-    job_env_file: "{{ restic_env_file }}"
-    job_minute: "0"
-    job_hour: "{{ restic_backup_hour | default('3') }}"
+    cronjob_name: "{{ restic_backup_job }}"
+    cronjob_script: "{{ restic_backup_script }}"
+    cronjob_args: "{{ restic_host }} {{ restic_backup_dirs | join(' ') }}"
+    cronjob_env_file: "{{ restic_env_file }}"
+    cronjob_minute: "0"
+    cronjob_hour: "{{ restic_backup_hour | default('3') }}"
 

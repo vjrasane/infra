@@ -7,10 +7,10 @@
         - name: paperless.karkki.org
           ip_cmd: "$(tailscale ip -4)"
     - role: cronjob
-      job_name: paperless-export
-      job_script: "{{ playbook_dir }}/paperless-export.sh"
-      job_hour: "2"
-      job_minute: "30"
+      cronjob_name: paperless-export
+      cronjob_script: "{{ playbook_dir }}/paperless-export.sh"
+      cronjob_hour: "2"
+      cronjob_minute: "30"
     - role: restic-backup
       restic_host: paperless
       restic_env_file: "{{ playbook_dir }}/secrets.env"
