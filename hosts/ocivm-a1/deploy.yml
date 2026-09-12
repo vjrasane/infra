@@ -6,6 +6,17 @@
       dns_records:
         - name: paperless.karkki.org
           ip_cmd: "$(tailscale ip -4)"
+    - role: cronjob
+      job_name: paperless-export
+      job_script: "{{ playbook_dir }}/paperless-export.sh"
+      job_hour: "2"
+      job_minute: "30"
+    - role: restic-backup
+      restic_host: paperless
+      restic_env_file: "{{ playbook_dir }}/secrets.env"
+      restic_backup_hour: "3"
+      restic_backup_dirs:
+        - "/mnt/data/paperless/export"
   tasks:
     - name: Create data directories
       file:
@@ -39,17 +50,6 @@
         state: directory
       tags: [files, secrets, docker]
 
-    - name: Copy files
-      copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        mode: "{{ item.mode | default('0644') }}"
-      tags: [files, copy]
-      loop:
-        - src: paperless-backup.sh
-          dest: ~/scripts/paperless-backup.sh
-          mode: u+rwx
-
     - name: Decrypt and copy secrets
       copy:
         content: "{{ lookup('community.sops.sops', 'secrets.env') }}"
@@ -69,29 +69,6 @@
       file:
         path: "~/logs"
         state: directory
-      tags: [cron, jobs]
-
-    - name: Schedule restic backup via cron
-      tags: [cron, jobs]
-      cron:
-        name: "restic paperless backup"
-        minute: "0"
-        hour: "3"
-        job: "~/scripts/paperless-backup.sh >> ~/logs/paperless-backup.logs 2>&1"
-
-    - name: Setup log rotation for paperless backup
-      copy:
-        dest: /etc/logrotate.d/paperless-backup
-        content: |
-          {{ ansible_facts["env"]["HOME"] }}/logs/paperless-backup.logs {
-              daily
-              rotate 7
-              compress
-              missingok
-              notifempty
-              copytruncate
-          }
-      become: yes
       tags: [cron, jobs]
 
     - name: Copy docker compose file

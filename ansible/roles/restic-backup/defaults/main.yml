@@ -1,4 +1,5 @@
 ---
-restic_host: "restic"
-backup_dirs: []
-hour: "3"
+restic_host: ""
+restic_backup_dirs: []
+restic_backup_hour: "3"
+restic_env_file: ""

@@ -1,15 +1,24 @@
 ---
 - name: Deploy services
   hosts: rpi5-01
+  vars:
+    get_cloudflare_ips_job: get-cloudflare-ips
+    cloudflare_ips_env_file: ~/services/cloudflare-ips.env
   roles:
     - role: cloudflare-dns
       dns_records:
         - name: jellyfin.karkki.org
           ip_cmd: "$(curl ipinfo.io/ip)"
       proxied: true
+    - role: cronjob
+      job_name: "{{ get_cloudflare_ips_job }}" 
+      job_script: "{{ playbook_dir }}/get-cloudflare-ips.sh"
+      job_args: "{{ cloudflare_ips_env_file }}" 
+      job_deps: curl
     - role: restic-backup
       restic_host: jellyfin
-      backup_dirs:
+      restic_env_file: "{{ playbook_dir }}/secrets.env"
+      restic_backup_dirs:
         - "~/shared/media/music"
         - "~/services/jellyfin-config"
   tasks:
@@ -52,6 +61,17 @@
         force: yes
       tags: [files, secrets, docker]
 
+    - name: Set Cloudflare IPs changed fact
+      ansible.builtin.set_fact:
+        cloudflare_ips_changed: job_changed[get_cloudflare_ips_job]
+
+    - name: Get Cloudflare IPs now
+      ansible.builtin.shell:
+        set -a; . ~/scripts/{{ get_cloudflare_ips_job }}.env; set +a;
+        ~/scripts/{{ get_cloudflare_ips_job }}.sh
+      when: job_changed[get_cloudflare_ips_job]
+      changed_when: true
+
     - name: Copy docker compose file
       copy:
         src: docker-compose.yml
@@ -86,3 +106,7 @@
         project_src: ~/services
       when: dns_changed | default(false)
       tags: [docker]
+
+
+
+

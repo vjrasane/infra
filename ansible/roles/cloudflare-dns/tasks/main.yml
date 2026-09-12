@@ -1,66 +1,39 @@
 ---
-- name: Install dependencies
-  become: true
-  package:
-    name: jq
-    state: present
+- name: Set facts
+  ansible.builtin.set_fact:
+    update_dns_job: update-dns
+    update_dns_script: "{{ role_path }}/files/update-dns.sh"
+    update_dns_secrets: "{{ role_path }}/files/cloudflare-secrets.env"
 
-- name: Create scripts directory
-  file:
-    path: ~/scripts
-    state: directory
-  tags: [files]
-
-- name: Create logs directory
-  file:
-    path: ~/logs
-    state: directory
-  tags: [files]
-
-- name: Copy update-dns script
-  copy:
-    src: update-dns.sh
-    dest: ~/scripts/update-dns.sh
-    mode: "0755"
-  tags: [files, copy]
-  register: dns_script
-
-- name: Decrypt and copy Cloudflare secrets
-  copy:
-    content: "{{ lookup('community.sops.sops', 'cloudflare-secrets.env') }}"
-    dest: ~/.cloudflare.env
-    mode: "0600"
-  tags: [files]
-
-- name: Setup DNS update cron
-  cron:
-    name: "update-dns-{{ item.name }}"
-    minute: "{{ dns_update_interval }}"
-    job: "~/scripts/update-dns.sh {{ item.name }} {{ item.ip_cmd }} {{ proxied }} >> ~/logs/update-dns.log 2>&1"
+- name: Install DNS update jobs
+  ansible.builtin.include_role:
+    name: cronjob
+  vars:
+    job_name: "{{ update_dns_job }}"
+    job_script: "{{ update_dns_script }}"
+    job_env_file: "{{ update_dns_secrets }}"
+    job_deps: jq
+    job_args: "{{ rec.name }} {{ rec.ip_cmd }} {{ proxied | ternary('true','false') }}"
   loop: "{{ dns_records }}"
-  tags: [cron, jobs]
-  register: dns_cron
-
-- name: Run DNS update now
-  shell: "~/scripts/update-dns.sh {{ item.name }} {{ item.ip_cmd }}"
-  loop: "{{ dns_records }}"
-  when: dns_script is changed or dns_cron is changed
+  loop_control:
+    loop_var: rec
+    label: "{{ rec.name }}"
 
 - name: Set DNS changed fact
-  set_fact:
-    dns_changed: "{{ dns_script is changed or dns_cron is changed }}"
+  ansible.builtin.set_fact:
+    dns_changed: "{{ job_changed[update_dns_job] | default(false) }}"
 
-- name: Setup log rotation
-  copy:
-    dest: /etc/logrotate.d/update-dns
-    content: |
-      {{ ansible_facts["env"]["HOME"] }}/logs/update-dns.log {
-          daily
-          rotate 7
-          compress
-          missingok
-          notifempty
-          copytruncate
-      }
-  become: yes
-  tags: [cron, jobs]
+- name: Run DNS update now
+  ansible.builtin.shell: >-
+    set -a; . ~/scripts/{{ update_dns_job }}.env; set +a;
+    ~/scripts/{{ update_dns_job }}.sh {{ item }}
+  loop: "{{ update_dns_args }}"
+  when: dns_changed
+  changed_when: true
+
+- name: Get Cloudflare IPs now
+  ansible.builtin.shell:
+    set -a; . ~/scripts/{{ get_cloudflare_ips_job }}.env; set +a;
+    ~/scripts/{{ get_cloudflare_ips_job }}.sh
+  when: dns_changed
+  changed_when: true

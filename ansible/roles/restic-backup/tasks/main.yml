@@ -1,42 +1,22 @@
 ---
-- name: Create scripts directory
-  file:
-    path: ~/scripts
-    state: directory
-  tags: [files]
+- name: Validate
+  ansible.builtin.assert:
+    that: 
+      - restic_host | length > 0
+      - restic_env_file | length > 0
+      - restic_backup_dirs | length > 0
 
-- name: Create logs directory
-  file:
-    path: ~/logs
-    state: directory
-  tags: [files]
+- name: Set facts
+  set_fact:
+    restic_backup_job: restic-backup-{{ restic_host }}
+    restic_backup_script: "{{ role_path }}/files/restic-backup.sh"
 
-- name: Copy backup script
-  copy:
-    src: restic-backup.sh
-    dest: ~/scripts/restic-backup.sh
-    mode: u+rwx
-  tags: [files, copy]
+- include_role: { name: cronjob }
+  vars:
+    job_name: "{{ restic_backup_job }}"
+    job_script: "{{ restic_backup_script }}"
+    job_args: "{{ restic_host }} {{ restic_backup_dirs | join(' ') }}" 
+    job_env_file: "{{ restic_env_file }}"
+    job_minute: "0"
+    job_hour: "{{ restic_backup_hour | default('3') }}"
 
-- name: Schedule restic backup via cron
-  cron:
-      name: "{{ restic_host }} backup"
-      job: "set -a; source ~/.env; ~/scripts/restic-backup.sh {{ restic_host }} {{ backup_dirs | join(' ') }} >> ~/logs/{{ restic_host }}-backup.logs 2>&1"
-      hour: "{{ hour | default('3') }}"
-      minute: "0"
-  tags: [cron, jobs]
-
-- name: Setup log rotation for restic backup
-  copy:
-    dest: "/etc/logrotate.d/{{ restic_host }}-backup"
-    content: |
-      {{ ansible_facts["env"]["HOME"] }}/logs/{{ restic_host }}-backup.logs {
-          daily
-          rotate 7
-          compress
-          missingok
-          notifempty
-          copytruncate
-      }
-  become: yes
-  tags: [cron, jobs]

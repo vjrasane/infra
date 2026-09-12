@@ -1,0 +1,76 @@
+---
+- name: Validate
+  ansible.builtin.assert:
+    that: 
+      - job_name | length > 0
+      - job_script | length > 0
+
+- name: Install dependencies
+  become: true
+  package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ [ job_deps ] | flatten(levels=1) }}"
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop:
+    - ~/logs
+    - ~/scripts
+
+- name: Install script
+  ansible.builtin.copy:
+    src: "{{ job_script }}"
+    dest: "~/scripts/{{ job_name }}.sh"
+    mode: "0750"
+  register: job_script_result
+
+- name: Decrypt and copy env file
+  copy:
+    content: "{{ lookup('community.sops.sops', job_env_file) }}"
+    dest: ~/scripts/{{ job_name }}.env
+    mode: "0600"
+  tags: [files]
+  no_log: true
+  register: job_env_result
+  when: job_env_file is not none
+
+- name: Setup cron
+  ansible.builtin.cron:
+    name: "{{ job_name }}"
+    minute: "{{ job_minute | default('*') }}"
+    hour: "{{ job_hour | default('*') }}"
+    day: "{{ job_day | default('*') }}"
+    job: >-
+      set -a;
+      [ -f ~/scripts/{{ job_name }}.env ] && . ~/scripts/{{ job_name }}.env;
+      set +a;
+      ~/scripts/{{ job_name }}.sh {{ job_args }}  >> ~/logs/{{ job_name }}.log 2>&1
+  register: job_cron_result
+
+- name: Setup log rotation
+  become: yes
+  copy:
+    dest: /etc/logrotate.d/{{ job_name }}
+    content: |
+      {{ ansible_facts.user_dir }}/logs/{{ job_name }}.log {
+          daily
+          rotate 7
+          compress
+          missingok
+          notifempty
+          copytruncate
+      }
+
+- name: Record change status
+  ansible.builtin.set_fact:
+    job_changed: >-
+      {{ job_changed | default({}) | combine({
+          job_name: (job_changed[job_name] | default(false))
+                    or job_script_result is changed
+                    or job_env_result is changed
+                    or job_cron_result is changed
+        }) }}
