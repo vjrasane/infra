@@ -1,31 +1,36 @@
 {
-  "name": "infra",
+  "name": "cdk8s",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "main.js",
+  "types": "main.ts",
+  "license": "Apache-2.0",
+  "private": true,
   "scripts": {
-    "dev": "tsx",
-    "deploy": "tsx src/index.ts"
+    "import": "cdk8s import",
+    "synth": "cdk8s synth",
+    "compile": "tsc --build",
+    "watch": "tsc --build -w",
+    "test": "jest",
+    "build": "npm run compile && npm run test && npm run synth",
+    "upgrade": "npm i cdk8s@latest cdk8s-cli@latest",
+    "upgrade:next": "npm i cdk8s@next cdk8s-cli@next"
   },
   "dependencies": {
-    "@sensible-ts/core": "file:../ansible-nonesense",
-    "lodash": "^4.18.1",
-    "sops-age": "^4.0.2",
-    "tsx": "^4.23.15"
+    "@kubernetes/client-node": "^1.4.0",
+    "@types/lodash": "^4.17.23",
+    "cdk8s": "^2.70.36",
+    "cdk8s-plus-28": "^2.5.6",
+    "constructs": "^10.4.4",
+    "lodash": "^4.17.23",
+    "yaml": "^2.8.2"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/vjrasane/infra.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/vjrasane/infra/issues"
-  },
-  "homepage": "https://github.com/vjrasane/infra#readme",
   "devDependencies": {
-    "@types/lodash": "^4.17.25",
-    "@types/node": "^26.6.4",
-    "typescript": "^7.0.2"
+    "@types/jest": "^27",
+    "@types/node": "^14",
+    "cdk8s-cli": "^2.203.14",
+    "jest": "^27",
+    "ts-jest": "^27",
+    "ts-node": "^10",
+    "typescript": "^4.9.5"
   }
 }

@@ -1,0 +1,103 @@
+---
+- name: Deploy Paperless
+  hosts: ocivm-a1
+  roles:
+    - role: cloudflare-dns
+      dns_records: paperless.karkki.org
+      ip_cmd: "$(tailscale ip -4)"
+    - role: cronjob
+      cronjob_name: paperless-export
+      cronjob_script: "{{ playbook_dir }}/paperless-export.sh"
+      cronjob_hour: "2"
+      cronjob_minute: "30"
+    - role: restic-backup
+      restic_host: paperless
+      restic_env_file: "{{ playbook_dir }}/secrets.env"
+      restic_backup_hour: "3"
+      restic_backup_dirs:
+        - "/mnt/data/paperless/export"
+  tasks:
+    - name: Create data directories
+      file:
+        path: "{{ item }}"
+        state: directory
+      tags: [files]
+      become: yes
+      loop:
+        - /mnt/data/paperless/data
+        - /mnt/data/paperless/media
+        - /mnt/data/paperless/export
+        - /mnt/data/paperless/consume
+
+    - name: Set data directory ownership
+      file:
+        path: "{{ item }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        recurse: yes
+      tags: [files]
+      become: yes
+      loop:
+        - /mnt/data/paperless/data
+        - /mnt/data/paperless/media
+        - /mnt/data/paperless/export
+        - /mnt/data/paperless/consume
+
+    - name: Create services directory
+      file:
+        path: "~/services"
+        state: directory
+      tags: [files, secrets, docker]
+
+    - name: Decrypt and copy secrets
+      copy:
+        content: "{{ lookup('community.sops.sops', 'secrets.env') }}"
+        dest: ~/.env
+        mode: "0600"
+      tags: [files, copy, secrets, docker]
+
+    - name: Symlink secrets to services dir
+      file:
+        src: ~/.env
+        dest: ~/services/.env
+        state: link
+        force: yes
+      tags: [files, secrets, docker]
+
+    - name: Create logs directory
+      file:
+        path: "~/logs"
+        state: directory
+      tags: [cron, jobs]
+
+    - name: Copy docker compose file
+      copy:
+        src: docker-compose.yml
+        dest: ~/services/docker-compose.yml
+      tags: [docker, files, copy]
+
+    - name: Start services
+      tags: [docker]
+      community.docker.docker_compose_v2:
+        project_src: ~/services
+        pull: always
+
+    - name: Remove traefik container after DNS update
+      community.docker.docker_container:
+        name: traefik
+        state: absent
+      when: dns_changed | default(false)
+      tags: [docker]
+
+    - name: Remove traefik letsencrypt volume
+      community.docker.docker_volume:
+        name: traefik-letsencrypt
+        state: absent
+      when: dns_changed | default(false)
+      tags: [docker]
+
+    - name: Recreate traefik after DNS update
+      community.docker.docker_compose_v2:
+        project_src: ~/services
+      when: dns_changed | default(false)
+      tags: [docker]

@@ -1,0 +1,91 @@
+services:
+  immich:
+    container_name: immich
+    image: ghcr.io/immich-app/immich-server:release
+    # extends:
+    #   file: hwaccel.transcoding.yml
+    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
+    volumes:
+      - ../volumes/immich-upload:/usr/src/app/upload
+      - ../volumes/immich-config:/opt/config
+      - /etc/localtime:/etc/localtime:ro
+    # env_file: .env
+    environment:
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE_NAME: immich
+      DB_HOSTNAME: immich-database
+      REDIS_HOSTNAME: immich-redis
+      IMMICH_CONFIG_FILE: /opt/config/immich.json
+    expose:
+      - 2283
+    ports:
+      - 2283:2283
+    depends_on:
+      - immich-redis
+      - immich-database
+      - immich-machine-learning
+    restart: unless-stopped
+    networks:
+      - homelab-public
+      - immich
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
+    # Example tag: ${IMMICH_VERSION:-release}-cuda
+    image: ghcr.io/immich-app/immich-machine-learning:release
+    # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
+    #   file: hwaccel.ml.yml
+    #   service: cpu # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    restart: unless-stopped
+    networks:
+      - immich
+
+  immich-redis:
+    container_name: immich_redis
+    image: docker.io/redis:6.2-alpine@sha256:328fe6a5822256d065debb36617a8169dbfbd77b797c525288e465f56c1d392b
+    healthcheck:
+      test: redis-cli ping || exit 1
+    restart: always
+    networks:
+      - immich
+
+  immich-database:
+    container_name: immich_postgres
+    image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0@sha256:90724186f0a3517cf6914295b5ab410db9ce23190a2d9d0b9dd6463e3fa298f0
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      - ../volumes/immich:/var/lib/postgresql/data
+    user: 1000:1000
+    healthcheck:
+      test: pg_isready --dbname=immich --username=postgres || exit 1; Chksum="$$(psql --dbname=immich --username=postgres --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
+      interval: 5m
+      start_interval: 30s
+      start_period: 5m
+    command:
+      [
+        "postgres",
+        "-c",
+        "shared_preload_libraries=vectors.so",
+        "-c",
+        'search_path="$$user", public, vectors',
+        "-c",
+        "logging_collector=on",
+        "-c",
+        "max_wal_size=2GB",
+        "-c",
+        "shared_buffers=512MB",
+        "-c",
+        "wal_compression=on"
+      ]
+    restart: unless-stopped
+    networks:
+      - immich
+
+networks:
+  immich:

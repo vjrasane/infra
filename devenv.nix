@@ -13,7 +13,7 @@
   languages.javascript = {
     enable = true;
     npm.enable = true;
-    package = pkgs.nodejs_24;
+    package = pkgs.nodejs_22;
   };
 
   languages.rust.enable = true;

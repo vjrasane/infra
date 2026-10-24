@@ -4,5 +4,5 @@ default:
 hooks:
     @devenv tasks run devenv:git-hooks:run
 
-deploy target='':
-    npm run deploy -- {{target}}
+deploy target='all':
+    ansible-playbook ansible/site.yml --skip-tags setup --limit {{target}}
