@@ -1,32 +1,7 @@
-import { host, HostRef, SSHConfig } from "@sensible-ts/core";
+import { inventoryHost } from "./lib/inventory";
 
-interface InventoryHost {
-  host: HostRef;
-  categories: string[];
-}
+export const rpi5_01 = inventoryHost("rpi5-01", { user: "vjrasane" });
+export const ocivm_01 = inventoryHost("ocivm-01");
+export const ocivm_e2 = inventoryHost("ocivm-02");
 
-export const inventoryHost = (
-  name: string,
-  cfg?: Partial<SSHConfig>,
-  ...categories: string[]
-): InventoryHost => {
-  const _host = host(name, cfg);
-  return {
-    host: _host,
-    categories,
-  };
-};
-
-export type FilterFn = (host: InventoryHost) => boolean;
-
-type HostRunFn = (filter: FilterFn) => Promise<void>;
-
-export const hostRun = (
-  fn: () => Promise<void>,
-  ihost: InventoryHost,
-): HostRunFn => {
-  return async (filter: FilterFn) => {
-    if (!filter(ihost)) return;
-    return ihost.host.run(fn);
-  };
-};
+export const inventory = [rpi5_01, ocivm_01, ocivm_e2];

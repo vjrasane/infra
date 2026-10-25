@@ -7,9 +7,8 @@ import { setupResticBackup } from "../../lib/restic-backup";
 import { file } from "@sensible-ts/core/builtin";
 import { facts } from "@sensible-ts/core";
 import { refreshTraefikCert, setupServices } from "../../lib/services";
-import { hostRun, inventoryHost } from "../../inventory";
-
-const HOST = inventoryHost("ocivm-01");
+import { hostRun } from "../../lib/inventory";
+import { ocivm_01 } from "../../inventory";
 
 const paperlessExportScript = readFileSync(
   path.join(__dirname, "paperless-export.sh"),
@@ -62,4 +61,4 @@ const deploy = async () => {
   if (dnsChanged) await refreshTraefikCert();
 };
 
-export const ocivm_01 = hostRun(deploy, HOST);
+export default hostRun(deploy, ocivm_01);

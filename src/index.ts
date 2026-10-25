@@ -1,14 +1,17 @@
-import { ocivm_01 } from "./hosts/ocivm-a1";
-import { rpi5_01 } from "./hosts/rpi5-01";
-import { FilterFn } from "./inventory";
+import { FilterFn, inventoryRun } from "./lib/inventory";
+import rpi5_01 from "./hosts/rpi5-01";
+import ocivm_01 from "./hosts/ocivm-a1";
+import ocivm_e2 from "./hosts/ocivm-e2";
+import { inventory } from "./inventory";
 
 const [, , limit] = process.argv;
 
-const runs = [
+const runs = inventoryRun(
   // ------------------
   rpi5_01,
   ocivm_01,
-];
+  ocivm_e2,
+);
 
 const cond: FilterFn = ({ host, categories }) => {
   if (!limit) return true;
@@ -18,7 +21,7 @@ const cond: FilterFn = ({ host, categories }) => {
 };
 
 const main = async () => {
-  await Promise.all(runs.map((r) => r(cond)));
+  await runs(inventory.filter(cond));
 };
 
 main();

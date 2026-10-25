@@ -6,9 +6,8 @@ import { setupCronjob } from "../../lib/cronjob";
 import { setupResticBackup } from "../../lib/restic-backup";
 import { decryptSops } from "sops-age";
 import { refreshTraefikCert, setupServices } from "../../lib/services";
-import { hostRun, inventoryHost } from "../../inventory";
-
-const HOST = inventoryHost("rpi5-01", { user: "vjrasane" });
+import { hostRun } from "../../lib/inventory";
+import { rpi5_01 } from "../../inventory";
 
 const cloudflareFirewallScript = readFileSync(
   path.join(__dirname, "set-cloudflare-firewall.sh"),
@@ -58,4 +57,4 @@ const deploy = async () => {
   });
 };
 
-export const rpi5_01 = hostRun(deploy, HOST);
+export default hostRun(deploy, rpi5_01);
