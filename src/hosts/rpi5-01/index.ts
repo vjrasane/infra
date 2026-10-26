@@ -1,4 +1,3 @@
-import { docker_prune } from "../../community/docker";
 import { readFileSync } from "node:fs";
 import path from "path";
 import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
@@ -33,7 +32,7 @@ const deploy = async () => {
   });
 
   const { dnsChanged } = await setupCloudflareDDNS(
-    "jellyfin.karkki.org",
+    ["jellyfin.karkki.org", "immich.karkki.org"],
     "curl ipinfo.io/ip",
   );
 
@@ -64,13 +63,6 @@ const deploy = async () => {
   });
 
   if (dnsChanged) await refreshTraefikCert();
-
-  await docker_prune("Prune dangling images", {
-    images: true,
-    images_filters: {
-      dangling: true,
-    },
-  });
 };
 
 export default hostRun(deploy, rpi5_01);

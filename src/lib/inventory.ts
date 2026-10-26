@@ -1,6 +1,6 @@
 import { host, HostRef, SSHConfig } from "@sensible-ts/core";
 
-interface InventoryHost {
+export interface InventoryHost {
   host: HostRef;
   categories: string[];
 }

@@ -4,6 +4,7 @@ import { toEnvFile } from "./utils";
 import {
   docker_compose_v2,
   docker_container,
+  docker_prune,
   docker_volume,
 } from "../community/docker";
 
@@ -44,6 +45,13 @@ export const setupServices = async (
     services,
     project_src: servicesDir,
     pull: "always",
+  });
+
+  await docker_prune("Prune dangling images", {
+    images: true,
+    images_filters: {
+      dangling: true,
+    },
   });
 };
 
