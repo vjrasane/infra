@@ -14,6 +14,14 @@ const cloudflareFirewallScript = readFileSync(
   "utf8",
 );
 
+const servicesDir = path.join(__dirname, "services");
+const composeFiles = [
+  path.join(servicesDir, "docker-compose.yml"),
+  path.join(servicesDir, "immich.yml"),
+  path.join(servicesDir, "jellyfin.yml"),
+  path.join(servicesDir, "traefik.yml"),
+];
+
 const deploy = async () => {
   const secrets: Record<string, string> = await decryptSops({
     path: path.join(__dirname, "secrets.env"),
@@ -41,11 +49,7 @@ const deploy = async () => {
     { env: secrets, hour: "3" },
   );
 
-  await setupServices(
-    path.join(__dirname, "docker-compose.yml"),
-    ["jellyfin", "traefik"],
-    secrets,
-  );
+  await setupServices(composeFiles, ["jellyfin", "immich", "traefik"], secrets);
 
   if (dnsChanged) await refreshTraefikCert();
 

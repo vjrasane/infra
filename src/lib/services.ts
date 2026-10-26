@@ -1,4 +1,5 @@
 import { file, copy } from "@sensible-ts/core/builtin";
+import path from "path";
 import { toEnvFile } from "./utils";
 import {
   docker_compose_v2,
@@ -10,7 +11,7 @@ const secretsFile = "~/.env";
 const servicesDir = "~/services";
 
 export const setupServices = async (
-  composeFilePath: string,
+  composeFiles: string | string[],
   services: string[],
   secrets: Record<string, string>,
 ) => {
@@ -32,10 +33,12 @@ export const setupServices = async (
     force: true,
   });
 
-  await copy("Copy docker compose file", {
-    src: composeFilePath,
-    dest: "~/services/docker-compose.yml",
-  });
+  for (const composeFile of [composeFiles].flat()) {
+    await copy("Copy compose file " + path.basename(composeFile), {
+      src: composeFile,
+      dest: servicesDir + "/" + path.basename(composeFile),
+    });
+  }
 
   await docker_compose_v2("Start services", {
     services,
@@ -43,6 +46,8 @@ export const setupServices = async (
     pull: "always",
   });
 };
+
+setupServices.servicesDir = servicesDir;
 
 export const refreshTraefikCert = async (
   container = "traefik",
