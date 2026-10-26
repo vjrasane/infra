@@ -14,6 +14,11 @@ const cloudflareFirewallScript = readFileSync(
   "utf8",
 );
 
+const traefikCloudflareIpsScript = readFileSync(
+  path.join(__dirname, "set-traefik-cloudflare-ips.sh"),
+  "utf8",
+);
+
 const servicesDir = path.join(__dirname, "services");
 const composeFiles = [
   path.join(servicesDir, "docker-compose.yml"),
@@ -50,6 +55,13 @@ const deploy = async () => {
   );
 
   await setupServices(composeFiles, ["jellyfin", "immich", "traefik"], secrets);
+
+  await setupCronjob("traefik cloudflare ips", traefikCloudflareIpsScript, [], {
+    deps: ["curl"],
+    hour: "2",
+    minute: "30",
+    immediate: true,
+  });
 
   if (dnsChanged) await refreshTraefikCert();
 
