@@ -14,4 +14,3 @@ export * from "./firewalld.ts";
 export * from "./selinux.ts";
 export * from "./rpm_ostree_upgrade.ts";
 export * from "./patch.ts";
-

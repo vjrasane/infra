@@ -1,18 +1,18 @@
 {
   "compilerOptions": {
     "alwaysStrict": true,
-    "declaration": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "experimentalDecorators": true,
-    "inlineSourceMap": true,
-    "inlineSources": true,
     "lib": [
       "es2016"
     ],
     "module": "preserve",
-    "noEmit": false,
-    "noEmitOnError": true,
+    "noEmit": true,
+    "types": [
+      "node"
+    ],
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,

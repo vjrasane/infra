@@ -1,4 +1,4 @@
-import { file, copy } from "@sensible-ts/core/builtin";
+import { file, copy } from "module-runner/builtin";
 import path from "path";
 import { toEnvFile } from "./utils";
 import {

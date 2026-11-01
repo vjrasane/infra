@@ -3,7 +3,7 @@ import path from "path";
 import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
 import { decryptSops } from "sops-age";
 import { refreshTraefikCert, setupServices } from "../../lib/services";
-import { copy } from "@sensible-ts/core/builtin";
+import { copy } from "module-runner/builtin";
 import { hostRun } from "../../lib/inventory";
 import { ocivm_e2 } from "../../inventory";
 

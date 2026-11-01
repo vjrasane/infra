@@ -36,18 +36,26 @@ export const hostRun = (
   runFn: () => Promise<void>,
   ...filter: Array<FilterFn | string | InventoryHost>
 ): HostRunFn => {
+  if (!filter.length) return (ihost) => ihost.host.run(runFn);
   const filterFn = toFilterFn(filter);
   return (ihost) =>
     filterFn(ihost) ? ihost.host.run(runFn) : Promise.resolve();
 };
 
-export const inventoryRun =
-  (...runs: HostRunFn[]) =>
-  (inventory: InventoryHost[]) =>
-    Promise.all(
-      inventory.map(async (ihost) => {
+export class Inventory {
+  constructor(public hosts: InventoryHost[]) {}
+
+  filter = (fn: FilterFn) => {
+    return new Inventory(this.hosts.filter(fn));
+  };
+
+  run = async (...runs: HostRunFn[]): Promise<void> => {
+    await Promise.all(
+      this.hosts.map(async (ihost) => {
         for (const runFn of runs) {
           await runFn(ihost);
         }
       }),
     );
+  };
+}

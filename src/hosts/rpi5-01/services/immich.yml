@@ -80,4 +80,3 @@ services:
         "wal_compression=on"
       ]
     restart: unless-stopped
-

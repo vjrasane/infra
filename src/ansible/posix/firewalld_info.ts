@@ -1,4 +1,4 @@
-import { type AnsibleModuleMeta, defineRemoteModule, type RemoteModuleSpec } from "@sensible-ts/core";
+import { type AnsibleModuleMeta, defineRemoteModule, type RemoteModuleSpec } from "module-runner";
 
 // Auto-generated from: ansible.posix.firewalld_info
 // DO NOT EDIT — regenerate with codegen

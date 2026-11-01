@@ -1,5 +1,5 @@
-import { currentHost, facts, host } from "@sensible-ts/core";
-import { package_, command, service, shell } from "@sensible-ts/core/builtin";
+import { currentHost, facts, host } from "module-runner";
+import { package_, command, service, shell } from "module-runner/builtin";
 import { authorized_key } from "./ansible/posix/index.ts";
 
 const { TAILSCALE_AUTH_KEY } = process.env;
