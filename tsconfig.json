@@ -10,7 +10,7 @@
     "lib": [
       "es2016"
     ],
-    "module": "CommonJS",
+    "module": "preserve",
     "noEmit": false,
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,

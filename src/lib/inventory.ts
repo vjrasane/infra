@@ -1,4 +1,4 @@
-import { host, HostRef, SSHConfig } from "@sensible-ts/core";
+import { host, HostRef, SSHConfig } from "module-runner";
 
 export interface InventoryHost {
   host: HostRef;

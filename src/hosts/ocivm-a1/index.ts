@@ -36,7 +36,7 @@ const deploy = async () => {
     hour: "2",
     minute: "30",
   });
-  await setupResticBackup("paperless", ["/mnt/data/paperless/export"], {
+  await setupResticBackup("paperless", [exportDir], {
     env: secrets,
     hour: "3",
   });

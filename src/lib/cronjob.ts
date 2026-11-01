@@ -1,5 +1,5 @@
-import { facts } from "@sensible-ts/core";
-import { apt, copy, cron, file, shell } from "@sensible-ts/core/builtin";
+import { facts } from "module-runner";
+import { apt, copy, cron, file, shell } from "module-runner/builtin";
 import { toEnvFile } from "./utils";
 import { kebabCase } from "lodash";
 

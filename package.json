@@ -9,6 +9,7 @@
   "dependencies": {
     "@sensible-ts/core": "file:../ansible-nonesense",
     "lodash": "^4.18.1",
+    "module-runner": "^1.1.0",
     "sops-age": "^4.0.2",
     "tsx": "^4.23.15"
   },
