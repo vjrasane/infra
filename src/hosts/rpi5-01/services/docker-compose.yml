@@ -1,4 +1,0 @@
-include:
-  - ./traefik.yml
-  - ./immich.yml
-  - ./jellyfin.yml

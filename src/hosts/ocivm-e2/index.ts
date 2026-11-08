@@ -1,39 +1,28 @@
-import { readFileSync } from "node:fs";
 import path from "path";
 import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
-import { decryptSops } from "sops-age";
-import { refreshTraefikCert, setupServices } from "../../lib/services";
-import { copy } from "module-runner/builtin";
+import { Service, setupServices, TraefikService } from "../../lib/services";
 import { hostRun } from "../../lib/inventory";
 import { ocivm_e2 } from "../../inventory";
 
-const gatusConfig = readFileSync(
-  path.join(__dirname, "gatus-config.yml"),
-  "utf8",
-);
+const servicesDir = path.join(__dirname, "services");
+
+const gatusConfig = path.join(__dirname, "gatus-config.yml");
 
 const deploy = async () => {
-  const secrets: Record<string, string> = await decryptSops({
-    path: path.join(__dirname, "secrets.env"),
-  });
-
   const { dnsChanged } = await setupCloudflareDDNS(
     "gatus.karkki.org",
     "tailscale ip -4",
   );
 
-  await copy("Copy gatus config", {
-    content: gatusConfig,
-    dest: setupServices.servicesDir + "/gatus-config.yml",
-  });
-
+  const traefik = new TraefikService(path.join(servicesDir, "traefik.yml"));
   await setupServices(
-    path.join(__dirname, "docker-compose.yml"),
-    ["traefik", "gatus"],
-    secrets,
+    traefik,
+    new Service("gatus", path.join(servicesDir, "gatus.yml"), {
+      files: [gatusConfig],
+    }),
   );
 
-  if (dnsChanged) await refreshTraefikCert();
+  if (dnsChanged) await traefik.refreshCert();
 };
 
 export default hostRun(deploy, ocivm_e2);

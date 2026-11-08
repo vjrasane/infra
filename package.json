@@ -10,7 +10,8 @@
     "lodash": "^4.18.1",
     "module-runner": "^1.2.0",
     "sops-age": "^4.0.2",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "yaml": "^2.9.1"
   },
   "repository": {
     "type": "git",

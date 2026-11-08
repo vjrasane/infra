@@ -1,6 +1,6 @@
 import { facts } from "module-runner";
 import { apt, copy, cron, file, shell } from "module-runner/builtin";
-import { toEnvFile } from "./utils";
+import { toShellEnvFile } from "./utils";
 import { kebabCase } from "lodash";
 
 export const setupCronjob = async (
@@ -16,42 +16,47 @@ export const setupCronjob = async (
     immediate?: boolean;
   } = {},
 ) => {
+  const {
+    ansible_user_dir: home,
+    ansible_user_id: user,
+    ansible_user_gid: gid,
+  } = await facts();
   const { env = {}, deps = [] } = opts;
   const identifier = kebabCase(name);
 
-  await apt("Install dependences for cronjob " + name, { name: deps });
+  const cronDir = `${home}/.local/libexec/cronjobs`;
+  const envDir = `${home}/.config/cronjobs`;
+  const logDir = `${home}/.local/state/cronjobs`;
 
-  for (const d of ["~/logs", "~/scripts"]) {
-    await file(`Create directory ${d} for cronjob ${name}`, {
-      path: d,
-      state: "directory",
-      mode: "0750",
-    });
-  }
+  const scriptPath = `${cronDir}/${identifier}.sh`;
+  const envPath = `${envDir}/${identifier}.env`;
+  const logPath = `${logDir}/${identifier}.log`;
+
+  if (deps.length)
+    await apt("Install dependences for cronjob " + name, { name: deps });
+
+  await createDir(name, logDir, "0750");
+  await createDir(name, cronDir, "0750");
 
   let changed = false;
 
-  const remoteScriptPath = `~/scripts/${identifier}.sh`;
   await copy("Install script for cronjob " + name, {
     content: script,
-    dest: remoteScriptPath,
+    dest: scriptPath,
     mode: "0750",
   }).then((r) => {
     changed = changed || r.changed;
   });
 
-  const { ansible_user_dir } = await facts();
-  const logFilePath = `${ansible_user_dir}/logs/${identifier}.log`;
-
-  let cmd = `${remoteScriptPath}${args ? " " + args.join(" ") : ""}`;
+  let cmd = `${scriptPath}${args.length ? " " + args.join(" ") : ""}`;
 
   if (Object.keys(env).length) {
-    const remoteEnvFilePath = `~/scripts/${identifier}.env`;
+    await createDir(name, envDir, "0700");
     await copy(
       "Copy env file for cronjob " + name,
       {
-        content: toEnvFile(env),
-        dest: remoteEnvFilePath,
+        content: toShellEnvFile(env),
+        dest: envPath,
         mode: "0600",
       },
       { noLog: true },
@@ -59,10 +64,10 @@ export const setupCronjob = async (
       changed = changed || r.changed;
     });
 
-    cmd = `set -a; . ${remoteEnvFilePath}; set +a; ${cmd}`;
+    cmd = `set -a; . ${envPath}; set +a; ${cmd}`;
   }
 
-  const job = `${cmd} >> ${logFilePath} 2>&1;`;
+  const job = `${cmd} >> ${logPath} 2>&1;`;
   await cron("Setup cron " + name, {
     name: identifier,
     minute: opts.minute ?? "*/5",
@@ -77,13 +82,15 @@ export const setupCronjob = async (
     "Setup log rotation for cronjob " + name,
     {
       dest: `/etc/logrotate.d/${identifier}`,
-      content: `${logFilePath} {
-          daily
-          rotate 7
-          compress
-          missingok
-          notifempty
-          copytruncate
+      content: `${logPath} {
+        su ${user} ${gid}
+        daily
+        rotate 7
+        missingok
+        notifempty
+        compress
+        delaycompress
+        create 0640 ${user} ${gid}
       }`,
     },
     { become: true },
@@ -93,4 +100,12 @@ export const setupCronjob = async (
     await shell("Run cronjob " + name + " immediately", { cmd });
 
   return { changed, cmd, job };
+};
+
+const createDir = async (job: string, dir: string, mode: string) => {
+  await file(`Create directory ${dir} for cronjob ${job}`, {
+    path: dir,
+    state: "directory",
+    mode,
+  });
 };

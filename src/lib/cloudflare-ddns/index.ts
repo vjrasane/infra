@@ -1,10 +1,12 @@
 import path from "path";
-import { decryptSops } from "sops-age";
 import { setupCronjob } from "../cronjob";
 import { readFileSync } from "fs";
+import encrypted from "./cloudflare-secrets.json";
+import { decryptSecrets } from "../../secrets";
 
 const script = readFileSync(path.join(__dirname, "update-dns.sh"), "utf8");
-const secretsFile = path.join(__dirname, "cloudflare-secrets.env");
+
+export const cloudflareSecrets = () => decryptSecrets(encrypted);
 
 export const setupCloudflareDDNS = async (
   dnsRecords: string | string[],
@@ -12,8 +14,6 @@ export const setupCloudflareDDNS = async (
   proxied = true,
 ) => {
   dnsRecords = Array.isArray(dnsRecords) ? dnsRecords : [dnsRecords];
-
-  const secrets = await decryptSops({ path: secretsFile });
 
   let dnsChanged = false;
   for (const record of dnsRecords) {
@@ -23,7 +23,7 @@ export const setupCloudflareDDNS = async (
       [record, `$(${ipCmd})`, String(proxied)],
       {
         deps: ["jq"],
-        env: secrets,
+        env: await cloudflareSecrets(),
         immediate: true,
       },
     );

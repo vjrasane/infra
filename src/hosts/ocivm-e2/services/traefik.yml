@@ -22,25 +22,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-letsencrypt:/letsencrypt
 
-  gatus:
-    image: twinproduction/gatus:latest
-    restart: unless-stopped
-    container_name: gatus
-    cpus: 0.2
-    mem_limit: 64m
-    extra_hosts:
-      - "gatus.karkki.org:host-gateway"
-    volumes:
-      - ./gatus-config.yml:/config/config.yaml:ro
-      - gatus-data:/data
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.gatus.rule: Host(`gatus.karkki.org`)
-      traefik.http.routers.gatus.entrypoints: websecure
-      traefik.http.routers.gatus.tls.certresolver: letsencrypt
-      traefik.http.services.gatus.loadbalancer.server.port: "8080"
-
 volumes:
   traefik-letsencrypt:
     name: traefik-letsencrypt
-  gatus-data:

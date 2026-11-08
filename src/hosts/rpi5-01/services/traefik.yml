@@ -16,13 +16,19 @@ services:
       - path: traefik.env
         required: false
     environment:
-      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+       CF_DNS_API_TOKEN_FILE: /run/secrets/cf_dns_api_token
     ports:
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-letsencrypt:/letsencrypt
+    secrets:
+      - cf_dns_api_token
 
 volumes:
   traefik-letsencrypt:
     name: traefik-letsencrypt
+
+secrets:
+  cf_dns_api_token:
+    environment: CF_DNS_API_TOKEN

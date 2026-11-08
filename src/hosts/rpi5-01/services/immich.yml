@@ -7,7 +7,7 @@ services:
     #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
     volumes:
       - ../data/immich-upload:/usr/src/app/upload
-      - ../data/immich-config:/opt/config
+      - immich-config:/opt/config
       - /etc/localtime:/etc/localtime:ro
     environment:
       DB_USERNAME: postgres
@@ -56,7 +56,7 @@ services:
       POSTGRES_DB: immich
       POSTGRES_INITDB_ARGS: '--data-checksums'
     volumes:
-      - ../data/immich-psql:/var/lib/postgresql/data
+      - immich-psql:/var/lib/postgresql/data
     user: 1000:1000
     healthcheck:
       test: pg_isready --dbname=immich --username=postgres || exit 1; Chksum="$$(psql --dbname=immich --username=postgres --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
@@ -80,3 +80,9 @@ services:
         "wal_compression=on"
       ]
     restart: unless-stopped
+
+volumes:
+  immich-config:
+    name: immich-config
+  immich-psql:
+    name: immich-psql

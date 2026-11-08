@@ -11,7 +11,7 @@ dist/
 .env
 *.env
 
-!**/secrets.env
+!**/*secrets.env
 
 .devenv/
 .direnv/

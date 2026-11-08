@@ -1,14 +1,14 @@
 import { readFileSync } from "fs";
 import path from "path";
-import { decryptSops } from "sops-age";
 import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
 import { setupCronjob } from "../../lib/cronjob";
 import { setupResticBackup } from "../../lib/restic-backup";
 import { file } from "module-runner/builtin";
 import { facts } from "module-runner";
-import { refreshTraefikCert, setupServices } from "../../lib/services";
+import { Service, setupServices, TraefikService } from "../../lib/services";
 import { hostRun } from "../../lib/inventory";
 import { ocivm_01 } from "../../inventory";
+import { paperlessResticRepo } from "../../restic";
 
 const paperlessExportScript = readFileSync(
   path.join(__dirname, "paperless-export.sh"),
@@ -23,23 +23,26 @@ const dataDirs = [
   exportDir,
 ];
 
-const deploy = async () => {
-  const secrets: Record<string, string> = await decryptSops({
-    path: path.join(__dirname, "secrets.env"),
-  });
+const servicesDir = path.join(__dirname, "services");
 
+const deploy = async () => {
   const { dnsChanged } = await setupCloudflareDDNS(
-    "paperless.karkki.org",
+    ["paperless.karkki.org"],
     "tailscale ip -4",
+    false,
   );
   await setupCronjob("paperless export", paperlessExportScript, [], {
     hour: "2",
     minute: "30",
   });
-  await setupResticBackup("paperless", [exportDir], {
-    env: secrets,
-    hour: "3",
-  });
+  await setupResticBackup(
+    "paperless",
+    [exportDir],
+    await paperlessResticRepo(),
+    {
+      hour: "3",
+    },
+  );
 
   const { ansible_user_id } = await facts();
   for (const d of dataDirs) {
@@ -52,13 +55,15 @@ const deploy = async () => {
     });
   }
 
+  const traefik = new TraefikService(path.join(servicesDir, "traefik.yml"));
   await setupServices(
-    path.join(__dirname, "docker-compose.yml"),
-    ["paperless", "redis", "traefik"],
-    secrets,
+    traefik,
+    new Service("paperless", path.join(servicesDir, "paperless.yml"), {
+      services: ["paperless", "redis"],
+    }),
   );
 
-  if (dnsChanged) await refreshTraefikCert();
+  if (dnsChanged) await traefik.refreshCert();
 };
 
 export default hostRun(deploy, ocivm_01);

@@ -3,10 +3,11 @@ import path from "path";
 import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
 import { setupCronjob } from "../../lib/cronjob";
 import { setupResticBackup } from "../../lib/restic-backup";
-import { decryptSops } from "sops-age";
-import { refreshTraefikCert, setupServices } from "../../lib/services";
+import { Service, setupServices, TraefikService } from "../../lib/services";
 import { hostRun } from "../../lib/inventory";
 import { rpi5_01 } from "../../inventory";
+import { homelabResticRepo } from "../../restic";
+import { setupSambaShare } from "../../lib/samba";
 
 const cloudflareFirewallScript = readFileSync(
   path.join(__dirname, "set-cloudflare-firewall.sh"),
@@ -19,18 +20,9 @@ const traefikCloudflareIpsScript = readFileSync(
 );
 
 const servicesDir = path.join(__dirname, "services");
-const composeFiles = [
-  path.join(servicesDir, "docker-compose.yml"),
-  path.join(servicesDir, "immich.yml"),
-  path.join(servicesDir, "jellyfin.yml"),
-  path.join(servicesDir, "traefik.yml"),
-];
+const shareDir = "/srv/shared";
 
 const deploy = async () => {
-  const secrets: Record<string, string> = await decryptSops({
-    path: path.join(__dirname, "secrets.env"),
-  });
-
   const { dnsChanged } = await setupCloudflareDDNS(
     ["jellyfin.karkki.org", "immich.karkki.org"],
     "curl ipinfo.io/ip",
@@ -50,10 +42,18 @@ const deploy = async () => {
   await setupResticBackup(
     "jellyfin",
     ["~/shared/media/music", "~/services/jellyfin-config"],
-    { env: secrets, hour: "3" },
+    await homelabResticRepo(),
+    { hour: "3" },
   );
 
-  await setupServices(composeFiles, ["jellyfin", "immich", "traefik"], secrets);
+  const traefik = new TraefikService(path.join(servicesDir, "traefik.yml"));
+  await setupServices(
+    traefik,
+    new Service("jellyfin", path.join(servicesDir, "jellyfin.yml")),
+    new Service("immich", path.join(servicesDir, "immich.yml")),
+  );
+
+  await setupSambaShare("karkkishare", shareDir);
 
   await setupCronjob("traefik cloudflare ips", traefikCloudflareIpsScript, [], {
     deps: ["curl"],
@@ -62,7 +62,7 @@ const deploy = async () => {
     immediate: true,
   });
 
-  if (dnsChanged) await refreshTraefikCert();
+  if (dnsChanged) await traefik.refreshCert();
 };
 
 export default hostRun(deploy, rpi5_01);

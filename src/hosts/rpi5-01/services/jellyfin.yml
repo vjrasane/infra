@@ -3,8 +3,8 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     volumes:
-      - ./jellyfin-config:/config
-      - ../shared/media/music:/data/music
+      - jellyfin-config:/config
+      - /home/vjrasane/shared/media/music:/data/music
     restart: unless-stopped
     environment:
       - PUID=1000
@@ -24,3 +24,7 @@ services:
       traefik.http.routers.paperless.entrypoints: websecure
       traefik.http.routers.paperless.tls.certresolver: letsencrypt
       traefik.http.services.paperless.loadbalancer.server.port: "8096"
+
+volumes:
+  jellyfin-config:
+    name: jellyfin-config
