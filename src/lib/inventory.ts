@@ -1,61 +1,78 @@
-import { host, HostRef, SSHConfig } from "module-runner";
+import {
+  localhost as _localhost,
+  host as hostRef,
+  HostRef,
+  SSHConfig,
+} from "module-runner";
+import { currentContext } from "./context";
 
-export interface InventoryHost {
-  host: HostRef;
-  categories: string[];
+export abstract class Target {
+  abstract name: string | undefined;
+  abstract hosts: Host[];
+
+  run = async (fn: () => Promise<unknown>) => {
+    const { filter } = currentContext();
+    const targets = this.filter(filter);
+    await Promise.all(targets.map((t) => t.host.run(fn)));
+  };
+
+  abstract filter: (fn: (target: Target) => boolean) => Host[];
 }
 
-export const inventoryHost = (
-  name: string,
-  cfg?: Partial<SSHConfig>,
-  ...categories: string[]
-): InventoryHost => {
-  const _host = host(name, cfg);
-  return {
-    host: _host,
-    categories,
+export class Host extends Target {
+  host: HostRef;
+  constructor(
+    readonly name: string,
+    readonly cfg?: Partial<SSHConfig>,
+  ) {
+    super();
+    this.host = hostRef(name, cfg);
+  }
+
+  get id(): symbol {
+    return this.host.id;
+  }
+
+  get hosts(): Host[] {
+    return [this];
+  }
+
+  filter = (fn: (target: Target) => boolean): Host[] => {
+    if (fn(this)) return [this];
+    return [];
   };
-};
+}
 
-export type FilterFn = (host: InventoryHost) => boolean;
+export class Group extends Target {
+  readonly name: string | undefined;
 
-type HostRunFn = (host: InventoryHost) => Promise<void>;
+  constructor(private readonly members: Array<Host>) {
+    super();
+  }
 
-const toFilterFn =
-  (filter: Array<FilterFn | string | InventoryHost>): FilterFn =>
-  (ihost) =>
-    filter.some((f) => {
-      if (typeof f === "function") return f(ihost);
-      if (typeof f !== "string") return ihost.host.id === f.host.id;
-      if (ihost.categories.includes(f)) return true;
-      if (ihost.host.name === f) return true;
-      return false;
-    });
+  get hosts(): Host[] {
+    return this.members;
+  }
 
-export const hostRun = (
-  runFn: () => Promise<void>,
-  ...filter: Array<FilterFn | string | InventoryHost>
-): HostRunFn => {
-  if (!filter.length) return (ihost) => ihost.host.run(runFn);
-  const filterFn = toFilterFn(filter);
-  return (ihost) =>
-    filterFn(ihost) ? ihost.host.run(runFn) : Promise.resolve();
-};
-
-export class Inventory {
-  constructor(public hosts: InventoryHost[]) {}
-
-  filter = (fn: FilterFn) => {
-    return new Inventory(this.hosts.filter(fn));
+  filter = (fn: (target: Target) => boolean): Host[] => {
+    return this.members.filter((m) => fn(m));
   };
+}
 
-  run = async (...runs: HostRunFn[]): Promise<void> => {
-    await Promise.all(
-      this.hosts.map(async (ihost) => {
-        for (const runFn of runs) {
-          await runFn(ihost);
-        }
-      }),
-    );
+export class Category extends Target {
+  constructor(
+    readonly name: string,
+    private readonly members: Array<Category | Host>,
+  ) {
+    super();
+  }
+
+  get hosts(): Host[] {
+    return this.members.flatMap((m) => m.hosts);
+  }
+
+  filter = (fn: (target: Target) => boolean): Host[] => {
+    if (fn(this)) return this.hosts;
+    return this.members.flatMap((m) => m.filter(fn));
   };
 }

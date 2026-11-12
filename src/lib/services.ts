@@ -1,4 +1,4 @@
-import { file, copy } from "module-runner/builtin";
+import { file, copy, lineinfile } from "module-runner/builtin";
 import path from "path";
 import {
   docker_compose_v2,
@@ -9,8 +9,25 @@ import {
 import { toEnvFile } from "./utils";
 import { cloudflareSecrets } from "./cloudflare-ddns";
 import yaml from "yaml";
+import { task } from "./task";
 
-const SERVICES_DIR = "~/services";
+export const SERVICES_DIR = "~/services";
+const parentComposeFilePath = `${SERVICES_DIR}/docker-compose.yml`;
+
+const parentComposeFile = task(["docker"], async () => {
+  const serviceDir = SERVICES_DIR;
+  await file("Create services directory", {
+    path: serviceDir,
+    state: "directory",
+    mode: "0750",
+  });
+
+  await lineinfile("Add include to parent compose file", {
+    path: parentComposeFilePath,
+    line: "include: ",
+    create: true,
+  });
+});
 
 export class Service {
   constructor(
@@ -27,7 +44,7 @@ export class Service {
     return this.opts.services ?? [this.name];
   }
 
-  protected get serviceDir() {
+  get serviceDir() {
     return `${SERVICES_DIR}/${this.name}`;
   }
 
@@ -40,6 +57,7 @@ export class Service {
   }
 
   deploy = async () => {
+    await parentComposeFile();
     await file(`Create services directory for service ${this.name}`, {
       path: this.serviceDir,
       state: "directory",
@@ -71,32 +89,10 @@ export class Service {
       src: this.sourceComposeFilePath,
       dest: this.composeFilePath,
     });
-  };
-}
 
-export class TraefikService extends Service {
-  constructor(sourceComposeFilePath: string) {
-    super("traefik", sourceComposeFilePath, {
-      services: ["traefik"],
-      secrets: cloudflareSecrets(),
-    });
-  }
-
-  refreshCert = async () => {
-    await docker_container("Remove traefik container after DNS update", {
-      name: this.name,
-      state: "absent",
-    });
-
-    await docker_volume("Remove traefik letsencrypt volume", {
-      volume_name: this.name + "-letsencrypt",
-      state: "absent",
-    });
-
-    await docker_compose_v2("Recreate traefik after DNS update", {
-      services: this.services,
-      project_src: path.dirname(this.serviceDir),
-      pull: "always",
+    await lineinfile("Add include to parent compose file", {
+      path: parentComposeFilePath,
+      line: "- " + path.relative(SERVICES_DIR, this.composeFilePath),
     });
   };
 }

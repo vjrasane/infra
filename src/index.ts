@@ -1,29 +1,26 @@
-import { FilterFn } from "./lib/inventory";
-import rpi5_01 from "./hosts/rpi5-01";
-import ocivm_01 from "./hosts/ocivm-a1";
-import ocivm_e2 from "./hosts/ocivm-e2";
-import { inventory } from "./inventory";
-import { common } from "./hosts/common";
+import jellyfin from "./jellyfin/jellyfin.ts";
+import immich from "./immich/immich.ts";
+import { handlers, withContext } from "./lib/context.ts";
+import { Target } from "./lib/inventory.ts";
+import { all, rpi5_01 } from "./inventory.ts";
+import { addGithubKeys } from "./common.ts";
 
 const [, , limit] = process.argv;
 
-const cond: FilterFn = ({ host, categories }) => {
+const filter = (target: Target) => {
   if (!limit) return true;
-  if (host.name === limit) return true;
-  if (categories.includes(limit)) return true;
-  return false;
+  return target.name === limit;
 };
 
-const { run } = inventory.filter(cond);
+const tags: string[] = [];
 
-const main = async () => {
-  await run(
-    // ------------------
-    common,
-    rpi5_01,
-    ocivm_01,
-    ocivm_e2,
-  );
-};
+withContext({ tags, filter }, async () => {
+  await all.run(addGithubKeys);
+  await Promise.all([
+    //-------------------
+    rpi5_01.run(jellyfin),
+    rpi5_01.run(immich),
+  ]);
 
-main();
+  await Promise.all(handlers().map((h) => h()));
+});

@@ -1,6 +1,7 @@
 {
   pkgs,
   lib,
+  config,
   ...
 }:
 {
@@ -8,6 +9,8 @@
   env = {
     HELM_PLUGINS = "";
     ANSIBLE_CONFIG = "ansible/ansible.cfg";
+    # Register the raw-yaml import loader for every node process in the shell
+    NODE_OPTIONS = "--import ${config.devenv.root}/loaders/register.mjs";
   };
 
   languages.javascript = {
