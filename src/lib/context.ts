@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "async_hooks";
 import { Target } from "./inventory";
+import { currentHost } from "module-runner";
 
 type Context = {
   filter: (target: Target) => boolean;
@@ -19,7 +20,8 @@ export function currentContext(): Context {
 
 export function registerHandler(fn: () => Promise<unknown>) {
   const ctx = currentContext();
-  ctx.handlers.push(fn);
+  const host = currentHost();
+  ctx.handlers.push(() => withContext({ tags: [] }, () => host.run(fn)));
 }
 
 export function handlers(): Array<() => Promise<unknown>> {

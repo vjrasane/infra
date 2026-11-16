@@ -9,7 +9,7 @@ const restartSsh = task([], () =>
   service({ name: "ssh", state: "restarted" }, { become: true }),
 );
 
-export const addGithubKeys = task(["ssh"], async () => {
+export const addGithubKeys = task(["ssh", "keys"], async () => {
   const { ansible_user_id: user } = await facts();
   await authorized_key("Add SSH keys from GitHub", {
     key: "https://github.com/vjrasane.keys",

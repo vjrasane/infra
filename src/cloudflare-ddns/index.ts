@@ -1,10 +1,7 @@
-import path from "path";
-import { setupCronjob } from "../cronjob";
-import { readFileSync } from "fs";
+import { setupCronjob } from "../lib/cronjob";
 import encrypted from "./cloudflare-secrets.json";
-import { decryptSecrets } from "../../secrets";
-
-const script = readFileSync(path.join(__dirname, "update-dns.sh"), "utf8");
+import { decryptSecrets } from "../secrets";
+import script from "./cloudflare-ddns.sh";
 
 export const cloudflareSecrets = () => decryptSecrets(encrypted);
 

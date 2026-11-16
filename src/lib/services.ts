@@ -1,14 +1,7 @@
 import { file, copy, lineinfile } from "module-runner/builtin";
 import path from "path";
-import {
-  docker_compose_v2,
-  docker_container,
-  docker_prune,
-  docker_volume,
-} from "../community/docker";
+import { docker_compose_v2 } from "../community/docker";
 import { toEnvFile } from "./utils";
-import { cloudflareSecrets } from "./cloudflare-ddns";
-import yaml from "yaml";
 import { task } from "./task";
 
 export const SERVICES_DIR = "~/services";
@@ -32,7 +25,7 @@ const parentComposeFile = task(["docker"], async () => {
 export class Service {
   constructor(
     protected name: string,
-    private sourceComposeFilePath: string,
+    private composeFileContent: string,
     private opts: {
       services?: string[];
       secrets?: Promise<Record<string, string>>;
@@ -52,8 +45,8 @@ export class Service {
     return `${this.serviceDir}/.env`;
   }
 
-  get composeFilePath() {
-    return `${this.serviceDir}/${path.basename(this.sourceComposeFilePath)}`;
+  private get composeFilePath() {
+    return `${this.serviceDir}/${this.name}.yaml`;
   }
 
   deploy = async () => {
@@ -85,49 +78,56 @@ export class Service {
       }
     }
 
-    await copy("Copy compose file " + path.basename(this.composeFilePath), {
-      src: this.sourceComposeFilePath,
+    const parentDir = path.dirname(this.serviceDir);
+    await copy(`Copy compose file for service ${this.name}`, {
+      content: this.composeFileContent,
       dest: this.composeFilePath,
     });
 
     await lineinfile("Add include to parent compose file", {
       path: parentComposeFilePath,
-      line: "- " + path.relative(SERVICES_DIR, this.composeFilePath),
+      line: "- " + path.relative(parentDir, this.composeFilePath),
+    });
+
+    await docker_compose_v2("Start services", {
+      services: this.services,
+      project_src: parentDir,
+      pull: "missing",
     });
   };
 }
-
-export const setupServices = async (...services: Service[]) => {
-  const serviceDir = SERVICES_DIR;
-  await file("Create services directory", {
-    path: serviceDir,
-    state: "directory",
-    mode: "0750",
-  });
-
-  const composeContents = yaml.stringify({
-    include: services.map((s) => path.relative(serviceDir, s.composeFilePath)),
-  });
-
-  await copy("Copy parent compose file", {
-    dest: `${serviceDir}/docker-compose.yml`,
-    content: composeContents,
-  });
-
-  for (const service of services) {
-    await service.deploy();
-  }
-
-  await docker_compose_v2("Start services", {
-    services: services.flatMap((s) => s.services),
-    project_src: serviceDir,
-    pull: "always",
-  });
-
-  await docker_prune("Prune dangling images", {
-    images: true,
-    images_filters: {
-      dangling: true,
-    },
-  });
-};
+//
+// export const setupServices = async (...services: Service[]) => {
+//   const serviceDir = SERVICES_DIR;
+//   await file("Create services directory", {
+//     path: serviceDir,
+//     state: "directory",
+//     mode: "0750",
+//   });
+//
+//   const composeContents = yaml.stringify({
+//     include: services.map((s) => path.relative(serviceDir, s.composeFilePath)),
+//   });
+//
+//   await copy("Copy parent compose file", {
+//     dest: `${serviceDir}/docker-compose.yml`,
+//     content: composeContents,
+//   });
+//
+//   for (const service of services) {
+//     await service.deploy();
+//   }
+//
+//   await docker_compose_v2("Start services", {
+//     services: services.flatMap((s) => s.services),
+//     project_src: serviceDir,
+//     pull: "always",
+//   });
+//
+//   await docker_prune("Prune dangling images", {
+//     images: true,
+//     images_filters: {
+//       dangling: true,
+//     },
+//   });
+// };

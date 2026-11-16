@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-const TEXT = /\.ya?ml$/;
+const TEXT = /\.(ya?ml|sh|bash)$/;
 
 export async function load(url, context, nextLoad) {
   if (TEXT.test(new URL(url).pathname)) {

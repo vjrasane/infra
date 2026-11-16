@@ -1,23 +1,29 @@
-import jellyfin from "./jellyfin/jellyfin.ts";
-import immich from "./immich/immich.ts";
+import jellyfin from "./jellyfin";
+import { parseArgs } from "node:util";
+import immich from "./immich";
 import { handlers, withContext } from "./lib/context.ts";
 import { Target } from "./lib/inventory.ts";
 import { all, rpi5_01 } from "./inventory.ts";
 import { addGithubKeys } from "./common.ts";
 
-const [, , limit] = process.argv;
+const { values } = parseArgs({
+  allowPositionals: false,
+  options: {
+    host: { type: "string", multiple: true, short: "h", default: [] },
+    tags: { type: "string", multiple: true, short: "t", default: [] },
+  },
+});
 
 const filter = (target: Target) => {
-  if (!limit) return true;
-  return target.name === limit;
+  if (values.host.length) return true;
+  if (!target.name) return false;
+  return values.host.includes(target.name);
 };
 
-const tags: string[] = [];
-
-withContext({ tags, filter }, async () => {
-  await all.run(addGithubKeys);
+withContext({ tags: values.tags, filter }, async () => {
   await Promise.all([
     //-------------------
+    all.run(addGithubKeys),
     rpi5_01.run(jellyfin),
     rpi5_01.run(immich),
   ]);

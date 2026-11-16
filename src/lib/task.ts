@@ -20,13 +20,12 @@ export class Task {
   private filter(): boolean {
     const { tags } = currentContext();
     if (!tags.length) return true;
-    return tags.every((t) => this.tags.includes(t));
+    return tags.some((t) => this.tags.includes(t));
   }
 
   run = async () => {
     if (!this.filter()) return;
     const target = currentHost();
-    if (!target) return;
     if (!this.memo.has(target.id)) {
       this.memo.set(
         target.id,

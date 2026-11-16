@@ -4,5 +4,5 @@ default:
 hooks:
     @devenv tasks run devenv:git-hooks:run
 
-deploy target='':
-    npm run deploy -- {{target}}
+deploy *ARGS:
+    npm run deploy -- {{ARGS}}
