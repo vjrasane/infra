@@ -6,9 +6,12 @@ services:
     #   file: hwaccel.transcoding.yml
     #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
     volumes:
-      - ../data/immich-upload:/usr/src/app/upload
-      - immich-config:/opt/config
+      - /mnt/data/immich/upload:/usr/src/app/upload
+      - /var/lib/immich/config:/opt/config
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      - default
+      - traefik
     environment:
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
@@ -56,7 +59,7 @@ services:
       POSTGRES_DB: immich
       POSTGRES_INITDB_ARGS: '--data-checksums'
     volumes:
-      - immich-psql:/var/lib/postgresql/data
+      - /var/lib/immich/db:/var/lib/postgresql/data
     user: 1000:1000
     healthcheck:
       test: pg_isready --dbname=immich --username=postgres || exit 1; Chksum="$$(psql --dbname=immich --username=postgres --tuples-only --no-align --command='SELECT COALESCE(SUM(checksum_failures), 0) FROM pg_stat_database')"; echo "checksum failure count is $$Chksum"; [ "$$Chksum" = '0' ] || exit 1
@@ -81,8 +84,6 @@ services:
       ]
     restart: unless-stopped
 
-volumes:
-  immich-config:
-    name: immich-config
-  immich-psql:
-    name: immich-psql
+networks:
+  traefik:
+    external: true

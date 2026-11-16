@@ -24,8 +24,14 @@ export function registerHandler(fn: () => Promise<unknown>) {
   ctx.handlers.push(() => withContext({ tags: [] }, () => host.run(fn)));
 }
 
-export function handlers(): Array<() => Promise<unknown>> {
-  return currentContext().handlers;
+interface Handlers {
+  run(): Promise<unknown>;
+}
+
+export function handlers(): Handlers {
+  return {
+    run: () => Promise.all(currentContext().handlers.map((h) => h())),
+  };
 }
 
 export function withContext<T>(

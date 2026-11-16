@@ -1,7 +1,7 @@
 import { setupCronjob } from "../lib/cronjob";
 import encrypted from "./cloudflare-secrets.json";
 import { decryptSecrets } from "../secrets";
-import script from "./cloudflare-ddns.sh";
+import script from "./update-dns.sh";
 
 export const cloudflareSecrets = () => decryptSecrets(encrypted);
 

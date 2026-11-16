@@ -7,6 +7,7 @@ services:
       - --log.level=INFO
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
       - --entrypoints.websecure.address=:443
       - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
@@ -24,10 +25,16 @@ services:
       - traefik-letsencrypt:/letsencrypt
     secrets:
       - cf_dns_api_token
+    networks:
+      - traefik
 
 volumes:
   traefik-letsencrypt:
     name: traefik-letsencrypt
+
+networks:
+  traefik:
+    external: true
 
 secrets:
   cf_dns_api_token:

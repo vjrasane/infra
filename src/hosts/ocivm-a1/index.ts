@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
 import path from "path";
-import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
+import { setupCloudflareDDNS } from "../../cloudflare-ddns";
 import { setupCronjob } from "../../lib/cronjob";
-import { setupResticBackup } from "../../lib/restic-backup";
+import { setupResticBackup } from "../../restic/restic";
 import { file } from "module-runner/builtin";
 import { facts } from "module-runner";
 import { Service, setupServices, TraefikService } from "../../lib/services";

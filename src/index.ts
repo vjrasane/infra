@@ -1,6 +1,6 @@
-import jellyfin from "./jellyfin";
+import { jellyfin } from "./jellyfin";
 import { parseArgs } from "node:util";
-import immich from "./immich";
+import { immich } from "./immich";
 import { handlers, withContext } from "./lib/context.ts";
 import { Target } from "./lib/inventory.ts";
 import { all, rpi5_01 } from "./inventory.ts";
@@ -15,7 +15,7 @@ const { values } = parseArgs({
 });
 
 const filter = (target: Target) => {
-  if (values.host.length) return true;
+  if (!values.host.length) return true;
   if (!target.name) return false;
   return values.host.includes(target.name);
 };
@@ -28,5 +28,5 @@ withContext({ tags: values.tags, filter }, async () => {
     rpi5_01.run(immich),
   ]);
 
-  await Promise.all(handlers().map((h) => h()));
+  await handlers().run();
 });

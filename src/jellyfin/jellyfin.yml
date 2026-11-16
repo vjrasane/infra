@@ -3,7 +3,7 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     volumes:
-      - jellyfin-config:/config
+      - /var/lib/jellyfin/config:/config
       - /home/vjrasane/shared/media/music:/data/music
     restart: unless-stopped
     environment:
@@ -20,11 +20,13 @@ services:
       - 1900:1900/udp #optional
     labels:
       traefik.enable: "true"
-      traefik.http.routers.paperless.rule: Host(`jellyfin.karkki.org`)
-      traefik.http.routers.paperless.entrypoints: websecure
-      traefik.http.routers.paperless.tls.certresolver: letsencrypt
-      traefik.http.services.paperless.loadbalancer.server.port: "8096"
+      traefik.http.routers.jellyfin.rule: Host(`jellyfin.karkki.org`)
+      traefik.http.routers.jellyfin.entrypoints: websecure
+      traefik.http.routers.jellyfin.tls.certresolver: letsencrypt
+      traefik.http.services.jellyfin.loadbalancer.server.port: "8096"
+    networks:
+      - traefik
 
-volumes:
-  jellyfin-config:
-    name: jellyfin-config
+networks:
+  traefik:
+    external: true

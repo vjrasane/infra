@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "path";
-import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
+import { setupCloudflareDDNS } from "../../cloudflare-ddns";
 import { setupCronjob } from "../../lib/cronjob";
-import { setupResticBackup } from "../../lib/restic-backup";
+import { setupResticBackup } from "../../restic/restic";
 import { Service, setupServices, TraefikService } from "../../lib/services";
 import { hostRun } from "../../lib/inventory";
 import { rpi5_01 } from "../../inventory";

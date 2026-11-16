@@ -1,5 +1,5 @@
 import path from "path";
-import { setupCloudflareDDNS } from "../../lib/cloudflare-ddns";
+import { setupCloudflareDDNS } from "../../cloudflare-ddns";
 import { Service, setupServices, TraefikService } from "../../lib/services";
 import { hostRun } from "../../lib/inventory";
 import { ocivm_e2 } from "../../inventory";
