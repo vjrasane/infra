@@ -14,8 +14,8 @@ env_file="$TRAEFIK_DIR/traefik.env"
 new="TRAEFIK_ENTRYPOINTS_WEBSECURE_FORWARDEDHEADERS_TRUSTEDIPS=$ips"
 
 if [ -f "$env_file" ] && [ "$(cat "$env_file")" = "$new" ]; then
-  echo "$(date -Is) Cloudflare ranges unchanged, skipping"
-  exit 0
+	echo "$(date -Is) Cloudflare ranges unchanged, skipping"
+	exit 0
 fi
 
 tmp=$(mktemp)
