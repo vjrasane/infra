@@ -3,6 +3,7 @@ import { docker_compose_v2, docker_network } from "../community/docker";
 interface ServiceOpts {
   services?: string[];
   networks?: string[];
+  pull?: "always" | "missing" | "never" | "policy" | undefined;
 }
 
 export const startService = async (
@@ -10,7 +11,7 @@ export const startService = async (
   path: string,
   opts: ServiceOpts = {},
 ) => {
-  const { services, networks = [] } = opts;
+  const { services, networks = [], pull = "missing" } = opts;
   await Promise.all(
     networks.map((network) =>
       docker_network(`Create ${network} network for service ${name}`, {
@@ -23,6 +24,6 @@ export const startService = async (
     project_name: name,
     project_src: path,
     services: services ?? [name],
-    pull: "missing",
+    pull,
   });
 };

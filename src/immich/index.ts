@@ -44,6 +44,7 @@ const docker = task(["docker", "immich"], async () => {
       "immich-redis",
       "immich-database",
     ],
+    pull: "always",
   });
 });
 
