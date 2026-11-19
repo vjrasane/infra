@@ -4,8 +4,10 @@ services:
     container_name: jellyfin
     volumes:
       - /var/lib/jellyfin/config:/config
-      - /home/vjrasane/shared/media/music:/data/music
+      - /mnt/shared/media/music:/data/music
     restart: unless-stopped
+    group_add:
+      - "1001"
     environment:
       - PUID=1000
       - PGID=1000

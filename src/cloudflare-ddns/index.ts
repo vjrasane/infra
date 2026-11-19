@@ -28,6 +28,7 @@ export const setupCloudflareDDNS = async (
   for (const record of dnsRecords) {
     const cronScript = `${scriptFile.path} ${record} $(${ipCmd} ${String(proxied)})`;
     const changed = await setupCronjob("update dns " + record, cronScript, {
+      minute: "*/5",
       env: await cloudflareSecrets(),
     });
     dnsChanged = dnsChanged || changed;

@@ -7,7 +7,7 @@ import { Service, setupServices, TraefikService } from "../../lib/services";
 import { hostRun } from "../../lib/inventory";
 import { rpi5_01 } from "../../inventory";
 import { homelabResticRepo } from "../../restic";
-import { setupSambaShare } from "../../lib/samba";
+import { setupSambaShare } from "../../samba";
 
 const cloudflareFirewallScript = readFileSync(
   path.join(__dirname, "set-cloudflare-firewall.sh"),

@@ -35,8 +35,10 @@ export class Task {
     return this.memo.get(target.id);
   };
 
-  register = (changed?: WithChanged) => {
-    if (changed == null || changed.changed) registerHandler(this.run);
+  register = (changed?: WithChanged | boolean) => {
+    if (typeof changed === "boolean" && !changed) return;
+    if (typeof changed === "object" && !changed.changed) return;
+    registerHandler(this.run);
   };
 }
 

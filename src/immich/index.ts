@@ -2,16 +2,9 @@ import { task } from "../lib/task";
 import { refreshTraefikCert, traefik } from "../traefik";
 import { homelabResticRepo, setupResticBackup } from "../restic";
 import { setupCloudflareDDNS } from "../cloudflare-ddns";
-import { createFiles, dir, selfGroup, selfOwner } from "../lib/files";
+import { createFiles, dir, commonPerms as perms } from "../lib/files";
 import { startService } from "../lib/services";
 import composeFileContent from "./immich.yml";
-
-const perms = {
-  become: true,
-  owner: selfOwner,
-  group: selfGroup,
-  mode: "0700",
-};
 
 const serviceDir = dir("/opt/immich", perms);
 const configDir = dir("/var/lib/immich/config", perms);
@@ -21,10 +14,7 @@ const uploadDir = dir("/mnt/data/immich/upload", perms);
 const composeFile = serviceDir.file("compose.yaml", composeFileContent);
 
 const dns = task(["immich"], async () => {
-  const { dnsChanged } = await setupCloudflareDDNS(
-    ["immich.karkki.org"],
-    "curl ipinfo.io/ip",
-  );
+  const { dnsChanged } = await setupCloudflareDDNS("immich.karkki.org");
 
   if (dnsChanged) refreshTraefikCert.register();
 });
@@ -53,7 +43,7 @@ const backup = task(["restic", "immich"], async () => {
     "immich",
     [uploadDir.path, configDir.path, dbDir.path],
     await homelabResticRepo(),
-    { hour: "4" },
+    { hour: "2" },
   );
 });
 

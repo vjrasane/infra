@@ -1,30 +1,11 @@
-import path from "path";
 import { startService } from "../lib/services";
 import { homelabResticRepo, setupResticBackup } from "../restic";
 import { task } from "../lib/task";
 import { refreshTraefikCert } from "../traefik";
 import composeFileContent from "./jellyfin.yml";
-import { facts } from "module-runner";
 import { setupCloudflareDDNS } from "../cloudflare-ddns";
-import { createFiles, dir, selfGroup, selfOwner } from "../lib/files";
+import { createFiles, dir, commonPerms as perms } from "../lib/files";
 import { traefik } from "../traefik";
-
-// const cloudflareFirewallScript = readFileSync(
-//   path.join(__dirname, "set-cloudflare-firewall.sh"),
-//   "utf8",
-// );
-//
-// const traefikCloudflareIpsScript = readFileSync(
-//   path.join(__dirname, "set-traefik-cloudflare-ips.sh"),
-//   "utf8",
-// );
-//
-const perms = {
-  become: true,
-  owner: selfOwner,
-  group: selfGroup,
-  mode: "0700",
-};
 
 const serviceDir = dir("/opt/jellyfin", perms);
 const configDir = dir("/var/lib/jellyfin/config", perms);
@@ -50,11 +31,9 @@ const docker = task(["docker", "jellyfin"], async () => {
 });
 
 const backup = task(["restic", "jellyfin"], async () => {
-  const { ansible_user_dir } = await facts();
-  const musicDir = path.join(ansible_user_dir, "shared", "media", "music");
   await setupResticBackup(
     "jellyfin",
-    [musicDir, configDir.path],
+    [configDir.path],
     await homelabResticRepo(),
     { hour: "3" },
   );
