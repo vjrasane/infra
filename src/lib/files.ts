@@ -10,7 +10,7 @@ type FileOpts = {
 };
 
 abstract class FileSystem {
-  private memo: Promise<void> | undefined;
+  private memo: Promise<boolean> | undefined;
 
   constructor(
     public readonly _path: string,
@@ -33,19 +33,19 @@ abstract class FileSystem {
     return path.dirname(this.path);
   }
 
-  async create(): Promise<void> {
+  async create(): Promise<boolean> {
     if (this.memo == undefined) {
       this.memo = this.runCreate();
     }
     return this.memo;
   }
 
-  private runCreate = async (): Promise<void> => {
+  private runCreate = async (): Promise<boolean> => {
     if (this.parent) await this.parent.create();
-    await this.createSelf();
+    return this.createSelf();
   };
 
-  protected abstract createSelf(): Promise<void>;
+  protected abstract createSelf(): Promise<boolean>;
 }
 
 type GuidRef = string | number | (() => Promise<string>);
@@ -60,6 +60,13 @@ const resolveGuid = async (guid?: GuidRef): Promise<string | undefined> => {
   if (typeof guid === "function") return guid();
   if (typeof guid === "number") return String(guid);
   return guid;
+};
+
+export const commonPerms = {
+  become: true,
+  owner: selfOwner,
+  group: selfGroup,
+  mode: "0700",
 };
 
 class Content extends FileSystem {
@@ -79,7 +86,7 @@ class Content extends FileSystem {
 
   protected createSelf = async () => {
     if (this.extraPath) await this.createDir();
-    await copy(
+    const { changed } = await copy(
       `Copy file ${this.path}`,
       {
         dest: this.path,
@@ -88,6 +95,7 @@ class Content extends FileSystem {
       },
       { become: this.opts?.become },
     );
+    return changed;
   };
 
   private createDir = async () => {
@@ -109,7 +117,7 @@ class Directory extends FileSystem {
   }
 
   protected createSelf = async () => {
-    await _file(
+    const { changed } = await _file(
       `Create directory ${this.path}`,
       {
         path: this.path,
@@ -118,6 +126,7 @@ class Directory extends FileSystem {
       },
       { become: this.opts?.become },
     );
+    return changed;
   };
 
   dir = (path: string, opts?: FileOpts) => new Directory(path, opts, this);

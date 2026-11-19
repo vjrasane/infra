@@ -32,10 +32,7 @@ const configDir = dir("/var/lib/jellyfin/config", perms);
 const composeFile = serviceDir.file("compose.yaml", composeFileContent);
 
 const dns = task(["jellyfin"], async () => {
-  const { dnsChanged } = await setupCloudflareDDNS(
-    ["jellyfin.karkki.org"],
-    "curl ipinfo.io/ip",
-  );
+  const { dnsChanged } = await setupCloudflareDDNS("jellyfin.karkki.org");
 
   if (dnsChanged) refreshTraefikCert.register();
 });

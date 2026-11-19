@@ -51,7 +51,7 @@ const docker = task(["docker", "immich"], async () => {
 const backup = task(["restic", "immich"], async () => {
   await setupResticBackup(
     "immich",
-    [uploadDir.path, configDir.path],
+    [uploadDir.path, configDir.path, dbDir.path],
     await homelabResticRepo(),
     { hour: "4" },
   );
