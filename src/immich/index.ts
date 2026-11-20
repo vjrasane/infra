@@ -2,7 +2,7 @@ import { task } from "../lib/task";
 import { refreshTraefikCert, traefik } from "../traefik";
 import { homelabResticRepo, setupResticBackup } from "../restic";
 import { setupCloudflareDDNS } from "../cloudflare-ddns";
-import { createFiles, dir, commonPerms as perms } from "../lib/files";
+import { createThings, dir, commonPerms as perms } from "../lib/files";
 import { startService } from "../lib/services";
 import composeFileContent from "./immich.yml";
 
@@ -20,7 +20,7 @@ const dns = task(["immich"], async () => {
 });
 
 const directories = task(["immich"], async () => {
-  await createFiles(configDir, dbDir, uploadDir);
+  await createThings(configDir, dbDir, uploadDir);
 });
 
 const docker = task(["docker", "immich"], async () => {

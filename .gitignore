@@ -24,3 +24,5 @@ dist/
 .mcp.json
 
 .sops.yaml
+
+!loaders

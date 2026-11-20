@@ -26,12 +26,13 @@ export const setupResticBackup = async (
     hour?: string;
   } = {},
 ) => {
-  const cronScript = `${scriptFile.path} ${dirs.join(" ")}`;
   const name = "restic backup " + host;
-  await setupCronjob(name, cronScript, {
+  const script = scriptFile.script([host, ...dirs], { env });
+  const cronjob = script.cronjob(name, {
     minute: "0",
     hour: "3",
-    env,
     ...opts,
   });
+
+  await cronjob.create();
 };

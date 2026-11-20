@@ -1,6 +1,10 @@
 import { facts } from "module-runner";
-import { copy, file as _file } from "module-runner/builtin";
+import { copy, file as _file, shell } from "module-runner/builtin";
 import path from "path";
+import { CronOpts } from "./cronjob";
+import { kebabCase } from "lodash";
+import { Memo } from "./memo";
+import { toEnvFile } from "./utils";
 
 type FileOpts = {
   mode?: string;
@@ -9,14 +13,18 @@ type FileOpts = {
   group?: GuidRef;
 };
 
-abstract class FileSystem {
-  private memo: Promise<boolean> | undefined;
+interface Createable {
+  create(): Promise<boolean>;
+}
 
+abstract class AbstractFileSystem extends Memo<boolean> implements Createable {
   constructor(
     public readonly _path: string,
     public readonly opts?: FileOpts,
     public readonly parent?: Directory,
-  ) {}
+  ) {
+    super();
+  }
 
   protected commonOpts = async () => ({
     mode: this.opts?.mode,
@@ -33,17 +41,12 @@ abstract class FileSystem {
     return path.dirname(this.path);
   }
 
-  async create(): Promise<boolean> {
-    if (this.memo == undefined) {
-      this.memo = this.runCreate();
-    }
-    return this.memo;
-  }
-
   private runCreate = async (): Promise<boolean> => {
     if (this.parent) await this.parent.create();
     return this.createSelf();
   };
+
+  create = this.memoize(this.runCreate);
 
   protected abstract createSelf(): Promise<boolean>;
 }
@@ -69,7 +72,7 @@ export const commonPerms = {
   mode: "0700",
 };
 
-class Content extends FileSystem {
+class Content extends AbstractFileSystem {
   constructor(
     _path: string,
     public readonly content: string | Promise<string>,
@@ -109,9 +112,12 @@ class Content extends FileSystem {
       { become: this.opts?.become },
     );
   };
+
+  script = (args: string[], opts?: ScriptExecOpts) =>
+    new Script(this, args, opts);
 }
 
-class Directory extends FileSystem {
+class Directory extends AbstractFileSystem {
   constructor(_path: string, opts?: FileOpts, parent?: Directory) {
     super(_path, opts, parent);
   }
@@ -135,6 +141,11 @@ class Directory extends FileSystem {
     new Content(path, content, opts, this);
 }
 
+type ScriptExecOpts = {
+  become?: boolean;
+  env?: Record<string, string>;
+};
+
 export const file = (
   path: string,
   content: string | Promise<string>,
@@ -143,6 +154,99 @@ export const file = (
 
 export const dir = (path: string, opts?: FileOpts) => new Directory(path, opts);
 
-export const createFiles = async (...files: FileSystem[]) => {
-  return Promise.all(files.map((f) => f.create()));
+export const createThings = async (...things: Createable[]) => {
+  return Promise.all(things.map((t) => t.create()));
 };
+
+const cronDir = dir("/etc/cron.d");
+
+class Script implements Createable {
+  constructor(
+    public readonly file: Content,
+    public readonly args: string[],
+    public readonly opts: ScriptExecOpts = {},
+  ) {}
+
+  get path(): string {
+    return this.file.path;
+  }
+
+  get dirPath(): string {
+    return this.file.dirPath;
+  }
+
+  get cmd(): string {
+    return `${this.path} ${this.args.join(" ")}`;
+  }
+
+  create = (): Promise<boolean> => this.file.create();
+
+  exec = async (): Promise<void> => {
+    await this.create();
+    await shell(
+      `Execute ${this.path}`,
+      {
+        cmd: this.cmd,
+      },
+      { become: this.opts.become },
+    );
+  };
+
+  cronjob = (name: string, opts?: CronOpts) => {
+    return new CronJob(name, this, opts);
+  };
+}
+
+class CronJob implements Createable {
+  constructor(
+    public readonly name: string,
+    public readonly script: Script,
+    private readonly _opts: CronOpts = {},
+  ) {}
+
+  private get opts(): CronOpts {
+    return { ...this.script.opts, ...this._opts };
+  }
+
+  private get identifier(): string {
+    return kebabCase(this.name);
+  }
+
+  private get cmd(): string {
+    return `${this.script.cmd} 2>&1 | logger -t ${this.identifier}`;
+  }
+
+  private get preamble(): string {
+    const { env } = this.opts;
+    if (!env) return "";
+    return toEnvFile(env) + "\n";
+  }
+
+  private get schedule(): string {
+    const {
+      minute = "*",
+      hour = "*",
+      dayOfWeek = "*",
+      dayOfMonth = "*",
+      month = "*",
+    } = this.opts;
+
+    return [minute, hour, dayOfMonth, month, dayOfWeek].join(" ");
+  }
+
+  private cronFileContent = async (): Promise<string> => {
+    const { ansible_user_id: user } = await facts();
+    return `${this.preamble}${this.schedule} ${user} ${this.cmd}\n`;
+  };
+
+  create = async (): Promise<boolean> => {
+    await this.script.create();
+    const cronFile = cronDir.file(this.identifier, this.cronFileContent(), {
+      become: true,
+      mode: "0600",
+    });
+
+    const changed = await cronFile.create();
+    return changed;
+  };
+}

@@ -11,36 +11,6 @@ import { toEnvFile } from "../lib/utils";
 import { startService } from "../lib/services";
 import setCloudflareIpsScriptContent from "./set-traefik-cloudflare-ips.sh";
 import setCloudflareFirewallScriptContent from "./set-cloudflare-firewall.sh";
-import { setupCronjob } from "../lib/cronjob";
-import { shell } from "module-runner/builtin";
-
-const serviceDir = dir("/opt/traefik", perms);
-
-const composeFile = serviceDir.file("compose.yaml", composeFileContent, perms);
-const secretsFile = serviceDir.file(
-  ".env",
-  cloudflareSecrets().then(toEnvFile),
-  { ...perms, mode: "0600" },
-);
-const setCloudflareIpsScript = serviceDir.file(
-  "set-traefik-cloudflare-ips.sh",
-  setCloudflareIpsScriptContent,
-  perms,
-);
-
-const setCloudflareFirewallScript = serviceDir.file(
-  "set-cloudflare-firewall.sh",
-  setCloudflareFirewallScriptContent,
-  perms,
-);
-
-export const traefik = task(["docker", "traefik"], async () => {
-  await composeFile.create();
-  await secretsFile.create();
-  await startService("traefik", composeFile.dirPath, {
-    networks: ["traefik"],
-  });
-});
 
 const tailnetIp4 = "100.64.0.0/10";
 const tailnetIp6 = "fd7a:115c:a1e0::/48";
@@ -53,32 +23,56 @@ const extraIps = [
   tailnetIp6,
 ];
 
-const setCloudflareIpsCmd = `${setCloudflareIpsScript.path} ${composeFile.dirPath} ${extraIps.join(" ")}`;
+const serviceDir = dir("/opt/traefik", perms);
+
+const composeFile = serviceDir.file("compose.yaml", composeFileContent, perms);
+const secretsFile = serviceDir.file(
+  ".env",
+  cloudflareSecrets().then(toEnvFile),
+  { ...perms, mode: "0600" },
+);
+const setCloudflareIpsScript = serviceDir
+  .file("set-traefik-cloudflare-ips.sh", setCloudflareIpsScriptContent, perms)
+  .script([composeFile.dirPath, ...extraIps]);
+
+const setCloudflareFirewallScript = serviceDir
+  .file("set-cloudflare-firewall.sh", setCloudflareFirewallScriptContent, perms)
+  .script(["eth0", "443", ...extraIps]);
+
+export const traefik = task(["docker", "traefik"], async () => {
+  await composeFile.create();
+  await secretsFile.create();
+  await startService("traefik", composeFile.dirPath, {
+    networks: ["traefik"],
+  });
+});
+
 const setCloudflareIps = task([], async () => {
-  await setCloudflareIpsScript.create();
-  await shell("Set cloudflare IPs", { cmd: setCloudflareIpsCmd });
+  await setCloudflareIpsScript.exec();
 });
 
 export const setCloudflareIpsCronjob = task([], async () => {
-  await setCloudflareIpsScript.create();
-  await setupCronjob("set cloudflare ips", setCloudflareIpsCmd, {
-    minute: "0",
-    hour: "5",
-  }).then(setCloudflareIps.register);
+  await setCloudflareIpsScript
+    .cronjob("set cloudflare ips", {
+      minute: "0",
+      hour: "5",
+    })
+    .create()
+    .then(setCloudflareIps.register);
 });
 
-const setCloudflareFirewallCmd = `${setCloudflareFirewallScript.path} eth0 443 ${extraIps.join(" ")}`;
 const setCloudflareFirewall = task([], async () => {
-  await setCloudflareFirewallScript.create();
-  await shell("Set cloudflare firewall", { cmd: setCloudflareFirewallCmd });
+  await setCloudflareFirewallScript.exec();
 });
 
 export const setCloudflareFirewallCronjob = task([], async () => {
-  await setCloudflareFirewallScript.create();
-  await setupCronjob("set cloudflare firewall", setCloudflareFirewallCmd, {
-    minute: "0",
-    hour: "5",
-  }).then(setCloudflareFirewall.register);
+  await setCloudflareFirewallScript
+    .cronjob("set cloudflare firewall", {
+      minute: "0",
+      hour: "5",
+    })
+    .create()
+    .then(setCloudflareFirewall.register);
 });
 
 export const filterTraffic = task([], async () => {

@@ -4,7 +4,7 @@ import { task } from "../lib/task";
 import { refreshTraefikCert } from "../traefik";
 import composeFileContent from "./jellyfin.yml";
 import { setupCloudflareDDNS } from "../cloudflare-ddns";
-import { createFiles, dir, commonPerms as perms } from "../lib/files";
+import { createThings, dir, commonPerms as perms } from "../lib/files";
 import { traefik } from "../traefik";
 
 const serviceDir = dir("/opt/jellyfin", perms);
@@ -19,7 +19,7 @@ const dns = task(["jellyfin"], async () => {
 });
 
 const directories = task(["jellyfin"], async () => {
-  await createFiles(serviceDir, configDir);
+  await createThings(serviceDir, configDir);
 });
 
 const docker = task(["docker", "jellyfin"], async () => {

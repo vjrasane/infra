@@ -1,4 +1,3 @@
-import { setupCronjob } from "../lib/cronjob";
 import encrypted from "./cloudflare-secrets.json";
 import { decryptSecrets } from "../secrets";
 import scriptContent from "./update-dns.sh";
@@ -26,11 +25,12 @@ export const setupCloudflareDDNS = async (
 
   dnsChanged = dnsChanged || (await scriptFile.create());
   for (const record of dnsRecords) {
-    const cronScript = `${scriptFile.path} ${record} $(${ipCmd} ${String(proxied)})`;
-    const changed = await setupCronjob("update dns " + record, cronScript, {
-      minute: "*/5",
+    const script = scriptFile.script([record, `$(${ipCmd})`, String(proxied)], {
       env: await cloudflareSecrets(),
     });
+    const cronjob = script.cronjob("update dns " + record, { minute: "*/5" });
+    const changed = await cronjob.create();
+
     dnsChanged = dnsChanged || changed;
   }
 

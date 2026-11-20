@@ -1,20 +1,18 @@
-import { currentHost } from "module-runner";
 import { currentContext, registerHandler, withContext } from "./context";
+import { Memo } from "./memo";
 
 interface WithChanged {
   changed: boolean;
 }
 
-export class Task {
-  readonly id: symbol;
-
-  private memo: Map<symbol, Promise<unknown>> = new Map();
+export class Task extends Memo<unknown> {
+  readonly id: symbol = Symbol();
 
   constructor(
     public readonly tags: string[],
     public readonly fn: () => Promise<unknown>,
   ) {
-    this.id = Symbol();
+    super();
   }
 
   private filter(): boolean {
@@ -23,17 +21,10 @@ export class Task {
     return tags.some((t) => this.tags.includes(t));
   }
 
-  run = async () => {
+  run = this.memoize(async () => {
     if (!this.filter()) return;
-    const target = currentHost();
-    if (!this.memo.has(target.id)) {
-      this.memo.set(
-        target.id,
-        withContext({ tags: [] }, () => this.fn()),
-      );
-    }
-    return this.memo.get(target.id);
-  };
+    return withContext({ tags: [] }, () => this.fn());
+  });
 
   register = (changed?: WithChanged | boolean) => {
     if (typeof changed === "boolean" && !changed) return;
