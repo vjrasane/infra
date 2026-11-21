@@ -6,6 +6,8 @@ type Context = {
   filter: (target: Target) => boolean;
   handlers: Array<() => Promise<unknown>>;
   tags: string[];
+  stateDir?: string;
+  noState?: boolean;
 };
 
 const storage = new AsyncLocalStorage<Context>();

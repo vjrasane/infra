@@ -3,7 +3,7 @@ import { copy, file as _file, shell } from "module-runner/builtin";
 import path from "path";
 import { CronOpts } from "./cronjob";
 import { kebabCase } from "lodash";
-import { Memo } from "./memo";
+import { StateInput, StatefulMemo } from "./memo";
 import { toEnvFile } from "./utils";
 
 type FileOpts = {
@@ -17,7 +17,7 @@ interface Createable {
   create(): Promise<boolean>;
 }
 
-abstract class AbstractFileSystem extends Memo<boolean> implements Createable {
+abstract class AbstractFileSystem extends StatefulMemo implements Createable {
   constructor(
     public readonly _path: string,
     public readonly opts?: FileOpts,
@@ -41,12 +41,21 @@ abstract class AbstractFileSystem extends Memo<boolean> implements Createable {
     return path.dirname(this.path);
   }
 
+  protected stateKey(): string {
+    return this.path;
+  }
+
+  protected async stateInput(): Promise<StateInput> {
+    const { mode, owner, group } = await this.commonOpts();
+    return { plain: { mode }, secret: { owner, group } };
+  }
+
   private runCreate = async (): Promise<boolean> => {
     if (this.parent) await this.parent.create();
     return this.createSelf();
   };
 
-  create = this.memoize(this.runCreate);
+  create = this.memoizeState(this.runCreate);
 
   protected abstract createSelf(): Promise<boolean>;
 }
@@ -80,6 +89,14 @@ class Content extends AbstractFileSystem {
     parent?: Directory,
   ) {
     super(_path, opts, parent);
+  }
+
+  protected async stateInput(): Promise<StateInput> {
+    const base = await super.stateInput();
+    return {
+      plain: base.plain,
+      secret: { ...base.secret, content: await this.content },
+    };
   }
 
   private get extraPath(): string {

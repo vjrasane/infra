@@ -25,4 +25,6 @@ dist/
 
 .sops.yaml
 
+/state.json
+
 !loaders
