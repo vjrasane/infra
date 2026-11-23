@@ -1,9 +1,8 @@
 import { facts } from "module-runner";
-import { copy, file as _file, shell } from "module-runner/builtin";
 import path from "path";
 import { CronOpts } from "./cronjob";
 import { kebabCase } from "lodash";
-import { StateInput, StatefulMemo } from "./memo";
+import { builtin } from "./cache";
 import { toEnvFile } from "./utils";
 
 type FileOpts = {
@@ -17,14 +16,12 @@ interface Createable {
   create(): Promise<boolean>;
 }
 
-abstract class AbstractFileSystem extends StatefulMemo implements Createable {
+abstract class AbstractFileSystem implements Createable {
   constructor(
     public readonly _path: string,
     public readonly opts?: FileOpts,
     public readonly parent?: Directory,
-  ) {
-    super();
-  }
+  ) {}
 
   protected commonOpts = async () => ({
     mode: this.opts?.mode,
@@ -41,21 +38,10 @@ abstract class AbstractFileSystem extends StatefulMemo implements Createable {
     return path.dirname(this.path);
   }
 
-  protected stateKey(): string {
-    return this.path;
-  }
-
-  protected async stateInput(): Promise<StateInput> {
-    const { mode, owner, group } = await this.commonOpts();
-    return { plain: { mode }, secret: { owner, group } };
-  }
-
-  private runCreate = async (): Promise<boolean> => {
+  create = async (): Promise<boolean> => {
     if (this.parent) await this.parent.create();
     return this.createSelf();
   };
-
-  create = this.memoizeState(this.runCreate);
 
   protected abstract createSelf(): Promise<boolean>;
 }
@@ -91,14 +77,6 @@ class Content extends AbstractFileSystem {
     super(_path, opts, parent);
   }
 
-  protected async stateInput(): Promise<StateInput> {
-    const base = await super.stateInput();
-    return {
-      plain: base.plain,
-      secret: { ...base.secret, content: await this.content },
-    };
-  }
-
   private get extraPath(): string {
     if (!this.parent) return path.dirname(this._path);
     return path.relative(this.parent.path, path.dirname(this.path));
@@ -106,7 +84,7 @@ class Content extends AbstractFileSystem {
 
   protected createSelf = async () => {
     if (this.extraPath) await this.createDir();
-    const { changed } = await copy(
+    const { changed } = await builtin.copy(
       `Copy file ${this.path}`,
       {
         dest: this.path,
@@ -119,7 +97,7 @@ class Content extends AbstractFileSystem {
   };
 
   private createDir = async () => {
-    await _file(
+    await builtin.file(
       `Create directory ${this.dirPath}`,
       {
         path: this.dirPath,
@@ -140,7 +118,7 @@ class Directory extends AbstractFileSystem {
   }
 
   protected createSelf = async () => {
-    const { changed } = await _file(
+    const { changed } = await builtin.file(
       `Create directory ${this.path}`,
       {
         path: this.path,
@@ -200,7 +178,7 @@ class Script implements Createable {
 
   exec = async (): Promise<void> => {
     await this.create();
-    await shell(
+    await builtin.shell(
       `Execute ${this.path}`,
       {
         cmd: this.cmd,
