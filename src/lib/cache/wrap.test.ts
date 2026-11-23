@@ -156,3 +156,31 @@ test("passes id to underlying as the task name", async () => {
   });
   expect(calls[0].id).toBe("my-task");
 });
+
+test("failed or skipped results are not persisted", async () => {
+  let count = 0;
+  const w = wrap({
+    demo: async () => {
+      count++;
+      return { status: "failed", failed: true, changed: false, skipped: false };
+    },
+  }) as any;
+  await run({}, async (dir) => {
+    await w.demo("task", {});
+    __resetInRun();
+    const result = await w.demo("task", {});
+    expect(count).toBe(2);
+    expect(result.failed).toBe(true);
+    expect(await readCache(dir)).toBe("");
+  });
+});
+
+test("cache:true and no opts dedupe together", async () => {
+  const { barrel, calls } = makeBarrel();
+  const w = wrap(barrel) as any;
+  await run({}, async () => {
+    await w.demo("task", { out: "a" });
+    await w.demo("task", { out: "a" }, { cache: true });
+    expect(calls).toHaveLength(1);
+  });
+});

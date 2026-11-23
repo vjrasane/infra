@@ -45,7 +45,10 @@ const runPersisted = async (
   const stored = await cacheStore().get(host, id);
   if (stored?.hash === hash) return replay(stored.output);
   const result = await fn(id, args, opts);
-  await cacheStore().set(host, id, { hash, output: result });
+  const { failed, skipped } = result as { failed?: boolean; skipped?: boolean };
+  if (!failed && !skipped) {
+    await cacheStore().set(host, id, { hash, output: result });
+  }
   return result;
 };
 
@@ -53,7 +56,8 @@ const wrapOne =
   (fn: Underlying) =>
   async (id: string, args: unknown, opts?: CacheOpts): Promise<unknown> => {
     const { cache, ...forwarded } = opts ?? {};
-    const forwardedOpts = opts === undefined ? undefined : forwarded;
+    const forwardedOpts =
+      Object.keys(forwarded).length === 0 ? undefined : forwarded;
     if (cache === false || currentContext().noCache || opts?.check === true) {
       return fn(id, args, forwardedOpts);
     }
