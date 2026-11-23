@@ -77,7 +77,7 @@ test("opts change the hash", () => {
 ### Task 2: Context flags + CacheStore
 
 **Files:**
-- Modify: `src/lib/context.ts:5-11` (replace `stateDir?`/`noState?` with `cacheDir?: string`/`noCache?: boolean`)
+- Modify: `src/lib/context.ts:5-11` (add `cacheDir?: string`/`noCache?: boolean`; leave `stateDir?`/`noState?` in place for Task 4 to remove alongside `StatefulMemo`, so the repo keeps typechecking between tasks)
 - Create: `src/lib/cache/store.ts`
 - Test: `src/lib/cache/store.test.ts`
 
@@ -88,7 +88,7 @@ test("opts change the hash", () => {
   - `class CacheStore { get(host: string, id: string): Promise<CacheEntry | undefined>; set(host: string, id: string, entry: CacheEntry): Promise<void> }`
   - `cacheStore(): CacheStore` — memoized per resolved file path (`path.join(cacheDir ?? process.cwd(), "cache.json")`).
 
-- [ ] **Step 1: Update `Context`** in `src/lib/context.ts` — swap the two fields; no other change.
+- [ ] **Step 1: Update `Context`** in `src/lib/context.ts` — add `cacheDir?: string` and `noCache?: boolean`. Leave `stateDir?`/`noState?` untouched (Task 4 removes them with `StatefulMemo`); removing them now breaks `tsc` because `StatefulMemo` still reads them.
 
 - [ ] **Step 2: Write the failing tests** in `src/lib/cache/store.test.ts` (use a temp dir via `cacheDir`):
 
@@ -152,7 +152,7 @@ test("passes id to underlying as the task name", async () => { /* demo first arg
 
 - [ ] **Step 4: Run `npm test` — expect PASS.**
 
-- [ ] **Step 5: Run `npx tsc --noEmit` — expect no errors in `src/lib/cache`.**
+- [ ] **Step 5: Run `npx tsc --noEmit`** — the repo has a 31-error pre-existing baseline (`.superpowers/sdd/2026-11-23-module-state-cache/tsc-baseline.txt`); expect **no new errors**, and specifically none referencing `src/lib/cache`.
 
 - [ ] **Step 6: Commit** — `jj commit -m "add module-cache wrap utility"`
 
@@ -163,6 +163,7 @@ test("passes id to underlying as the task name", async () => { /* demo first arg
 **Files:**
 - Create: `src/lib/cache/index.ts`
 - Modify: `src/lib/memo.ts` (remove `StateInput`, `StatefulMemo`, `StateStore`, `storeFor`, `hash`, `equal`, `STATE_FILE`, `HostState`, `StateData`, `tmpSeq`; keep `Memo`)
+- Modify: `src/lib/context.ts` (remove the now-unused `stateDir?`/`noState?` fields — nothing references them once `StatefulMemo` is gone)
 - Modify: `src/lib/files.ts:1-61,94-131,201-210` (migrate off `StatefulMemo`)
 - Modify: `.gitignore` (replace `/state.json` with `/cache.json`)
 
@@ -172,7 +173,7 @@ test("passes id to underlying as the task name", async () => { /* demo first arg
 
 - [ ] **Step 1: Write `src/lib/cache/index.ts`** — `import * as rawBuiltin from "module-runner/builtin"; export const builtin = wrap(rawBuiltin);` plus re-exports.
 
-- [ ] **Step 2: Remove the stateful block from `src/lib/memo.ts`** — keep only `Memo`. Expected after: `src/lib/memo.ts` has no `crypto`/`fs` imports.
+- [ ] **Step 2: Remove the stateful block from `src/lib/memo.ts`** — keep only `Memo`. Expected after: `src/lib/memo.ts` has no `crypto`/`fs` imports. Then remove the now-unused `stateDir?`/`noState?` fields from `Context` in `src/lib/context.ts`.
 
 - [ ] **Step 3: Migrate `src/lib/files.ts`:**
   - Replace `import { copy, file as _file, shell } from "module-runner/builtin"` with the wrapped `builtin` from `../cache`; use `builtin.copy`, `builtin.file`, `builtin.shell`.
@@ -181,7 +182,7 @@ test("passes id to underlying as the task name", async () => { /* demo first arg
 
 - [ ] **Step 4: Edit `.gitignore`** — `/state.json` → `/cache.json`.
 
-- [ ] **Step 5: Run `npx tsc --noEmit` — expect no errors.** Also run `npm test` — expect PASS (unchanged).
+- [ ] **Step 5: Run `npx tsc --noEmit`** — compare against the 31-error baseline (`.superpowers/sdd/2026-11-23-module-state-cache/tsc-baseline.txt`); expect **no new errors** from your changes. The pre-existing `src/lib/files.ts(4,26)` `./cronjob` error and the other 30 remain (unrelated, work-in-progress). Also run `npm test` — expect PASS.
 
 - [ ] **Step 6: Commit** — `jj commit -m "memoize ansible modules via central cache; drop StatefulMemo"`
 

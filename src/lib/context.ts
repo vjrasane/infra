@@ -8,6 +8,8 @@ type Context = {
   tags: string[];
   stateDir?: string;
   noState?: boolean;
+  cacheDir?: string;
+  noCache?: boolean;
 };
 
 const storage = new AsyncLocalStorage<Context>();
