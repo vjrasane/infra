@@ -183,7 +183,7 @@ class Script implements Createable {
       {
         cmd: this.cmd,
       },
-      { become: this.opts.become },
+      { become: this.opts.become, cache: false },
     );
   };
 

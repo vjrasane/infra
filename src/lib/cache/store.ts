@@ -13,6 +13,7 @@ let tmpSeq = 0;
 export class CacheStore {
   private data: CacheData = {};
   private loading?: Promise<void>;
+  private flushing: Promise<void> = Promise.resolve();
 
   constructor(private readonly file: string) {}
 
@@ -40,11 +41,14 @@ export class CacheStore {
     await this.flush();
   };
 
-  private flush = async (): Promise<void> => {
-    await mkdir(path.dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.${process.pid}.${tmpSeq++}.tmp`;
-    await writeFile(tmp, JSON.stringify(this.data, null, 2));
-    await rename(tmp, this.file);
+  private flush = (): Promise<void> => {
+    this.flushing = this.flushing.catch(() => {}).then(async () => {
+      await mkdir(path.dirname(this.file), { recursive: true });
+      const tmp = `${this.file}.${process.pid}.${tmpSeq++}.tmp`;
+      await writeFile(tmp, JSON.stringify(this.data, null, 2));
+      await rename(tmp, this.file);
+    });
+    return this.flushing;
   };
 }
 
