@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "async_hooks";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { currentContext } from "../context.ts";
+import { HostRef, ModuleResult } from "module-runner";
 
 export type CacheEntry = { hash: string; output: unknown };
 
@@ -63,40 +64,59 @@ export class CacheStore {
     return this.flushing;
   };
 
+  private getHostRuns = (host: HostRef): Map<string, Inflight> => {
+    if (!this.inflight.has(host.id)) {
+      this.inflight.set(host.id, new Map<string, Inflight>());
+    }
+    return this.inflight.get(host.id)!;
+  };
+
+  private getInflight = (
+    host: HostRef,
+    resourceId: string,
+  ): Inflight | undefined => {
+    return this.getHostRuns(host).get(resourceId);
+  };
+
+  private setInflight = (
+    host: HostRef,
+    resourceId: string,
+    inflight: Inflight,
+  ): void => {
+    this.getHostRuns(host).set(resourceId, inflight);
+  };
+
   run = (
-    host: { id: symbol; name: string },
+    host: HostRef,
     id: string,
     hash: string,
-    compute: () => Promise<unknown>,
-    persist: (result: unknown) => boolean,
+    compute: () => Promise<ModuleResult<unknown>>,
+    // persist: (result: unknown) => boolean,
   ): Promise<CacheHit> => {
-    const hostRuns = this.inflight.get(host.id) ?? new Map<string, Inflight>();
-    this.inflight.set(host.id, hostRuns);
-    const existing = hostRuns.get(id);
-    if (existing) {
-      if (existing.hash !== hash) {
-        throw new Error(
-          `duplicate id "${id}" on host "${host.name}" with different arguments`,
-        );
-      }
-      return existing.promise;
+    const inflight = this.getInflight(host, id);
+    if (!inflight) {
+      const promise = this.resolve(host.name, id, hash, compute);
+      this.setInflight(host, id, { hash, promise });
+      return promise;
     }
-    const promise = this.resolve(host.name, id, hash, compute, persist);
-    hostRuns.set(id, { hash, promise });
-    return promise;
+    if (inflight.hash !== hash) {
+      throw new Error(
+        `duplicate id "${id}" on host "${host.name}" with different arguments`,
+      );
+    }
+    return inflight.promise;
   };
 
   private resolve = async (
     host: string,
     id: string,
     hash: string,
-    compute: () => Promise<unknown>,
-    persist: (result: unknown) => boolean,
+    compute: () => Promise<ModuleResult<unknown>>,
   ): Promise<CacheHit> => {
     const stored = await this.get(host, id);
     if (stored?.hash === hash) return { hit: true, output: stored.output };
     const result = await compute();
-    if (persist(result)) {
+    if (!result.failed && !result.skipped) {
       await this.set(host, id, { hash, output: result });
     }
     return { hit: false, output: result };
