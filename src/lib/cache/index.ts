@@ -4,5 +4,5 @@ import { wrap } from "./wrap.ts";
 export const builtin = wrap(rawBuiltin);
 
 export { wrap } from "./wrap.ts";
-export { cacheStore } from "./store.ts";
+export { currentStore, withStore, CacheStore } from "./store.ts";
 export type { CacheEntry } from "./store.ts";

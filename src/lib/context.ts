@@ -7,7 +7,7 @@ type Context = {
   handlers: Array<() => Promise<unknown>>;
   tags: string[];
   cacheDir?: string;
-  noCache?: boolean;
+  cache?: boolean;
 };
 
 const storage = new AsyncLocalStorage<Context>();

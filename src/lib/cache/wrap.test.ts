@@ -1,9 +1,10 @@
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { beforeEach, expect, test, vi } from "vitest";
+import { expect, test, vi } from "vitest";
 import { withContext } from "../context.ts";
-import { __resetInRun, wrap } from "./wrap.ts";
+import { CacheStore, withStore } from "./store.ts";
+import { wrap } from "./wrap.ts";
 
 vi.mock("module-runner", () => {
   const host = { id: Symbol("h1"), name: "h1" };
@@ -44,22 +45,20 @@ const tempDir = (): Promise<string> =>
 const readCache = (dir: string): Promise<string> =>
   readFile(path.join(dir, "cache.json"), "utf8").catch(() => "");
 
-const run = async <T>(
-  ctx: { noCache?: boolean },
-  fn: (dir: string) => Promise<T>,
-): Promise<T> => {
-  const cacheDir = await tempDir();
-  return withContext({ cacheDir, ...ctx }, () => fn(cacheDir));
-};
-
-beforeEach(() => {
-  __resetInRun();
-});
+const play = <T>(
+  dir: string,
+  ctx: { cache?: boolean },
+  fn: () => Promise<T>,
+): Promise<T> =>
+  withStore(new CacheStore(path.join(dir, "cache.json")), () =>
+    withContext(ctx, fn),
+  );
 
 test("same id + same args runs underlying once", async () => {
   const { barrel, calls } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async () => {
+  const dir = await tempDir();
+  await play(dir, {}, async () => {
     await w.demo("task", { out: "a" });
     await w.demo("task", { out: "a" });
   });
@@ -69,7 +68,8 @@ test("same id + same args runs underlying once", async () => {
 test("same id + different args throws", async () => {
   const { barrel } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async () => {
+  const dir = await tempDir();
+  await play(dir, {}, async () => {
     await w.demo("task", { out: "a" });
     await expect(w.demo("task", { out: "b" })).rejects.toThrow(/duplicate id/);
   });
@@ -78,25 +78,24 @@ test("same id + different args throws", async () => {
 test("persisted hash replays output with changed:false", async () => {
   const { barrel, calls } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async () => {
-    await w.demo("task", { out: "a" });
-    __resetInRun();
-    const result = await w.demo("task", { out: "a" });
-    expect(calls).toHaveLength(1);
-    expect(result.changed).toBe(false);
-    expect(result.out).toBe("a");
-  });
+  const dir = await tempDir();
+  await play(dir, {}, () => w.demo("task", { out: "a" }));
+  const result: any = await play(dir, {}, () => w.demo("task", { out: "a" }));
+  expect(calls).toHaveLength(1);
+  expect(result.changed).toBe(false);
+  expect(result.out).toBe("a");
 });
 
 test("cache:false runs every time and writes nothing", async () => {
   const { barrel, calls } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async (dir) => {
+  const dir = await tempDir();
+  await play(dir, {}, async () => {
     await w.demo("task", { out: "a" }, { cache: false });
     await w.demo("task", { out: "a" }, { cache: false });
-    expect(calls).toHaveLength(2);
-    expect(await readCache(dir)).toBe("");
   });
+  expect(calls).toHaveLength(2);
+  expect(await readCache(dir)).toBe("");
 });
 
 test("cache:false is not forwarded to the underlying module", async () => {
@@ -107,53 +106,53 @@ test("cache:false is not forwarded to the underlying module", async () => {
       return { status: "ok" };
     },
   }) as any;
-  await run({}, async () => {
-    await w.demo("task", {}, { cache: false, check: false });
-  });
+  const dir = await tempDir();
+  await play(dir, {}, () => w.demo("task", {}, { cache: false, check: false }));
   expect(seen[0]).toEqual({ check: false });
 });
 
-test("noCache bypasses like cache:false", async () => {
+test("context cache:false bypasses like per-call cache:false", async () => {
   const { barrel, calls } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({ noCache: true }, async (dir) => {
+  const dir = await tempDir();
+  await play(dir, { cache: false }, async () => {
     await w.demo("task", { out: "a" });
     await w.demo("task", { out: "a" });
-    expect(calls).toHaveLength(2);
-    expect(await readCache(dir)).toBe("");
   });
+  expect(calls).toHaveLength(2);
+  expect(await readCache(dir)).toBe("");
 });
 
 test("check:true reads and writes nothing", async () => {
   const { barrel, calls } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async (dir) => {
+  const dir = await tempDir();
+  await play(dir, {}, async () => {
     await w.demo("task", { out: "a" }, { check: true });
     await w.demo("task", { out: "a" }, { check: true });
-    expect(calls).toHaveLength(2);
-    expect(await readCache(dir)).toBe("");
   });
+  expect(calls).toHaveLength(2);
+  expect(await readCache(dir)).toBe("");
 });
 
 test("failed module is not cached", async () => {
   const { barrel, calls, failOnce } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async () => {
+  const dir = await tempDir();
+  await play(dir, {}, async () => {
     failOnce();
     await expect(w.demo("task", { out: "a" })).rejects.toThrow("boom");
-    __resetInRun();
-    const result = await w.demo("task", { out: "a" });
-    expect(calls).toHaveLength(2);
-    expect(result.changed).toBe(true);
   });
+  const result: any = await play(dir, {}, () => w.demo("task", { out: "a" }));
+  expect(calls).toHaveLength(2);
+  expect(result.changed).toBe(true);
 });
 
 test("passes id to underlying as the task name", async () => {
   const { barrel, calls } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async () => {
-    await w.demo("my-task", { out: "a" });
-  });
+  const dir = await tempDir();
+  await play(dir, {}, () => w.demo("my-task", { out: "a" }));
   expect(calls[0].id).toBe("my-task");
 });
 
@@ -165,22 +164,21 @@ test("failed or skipped results are not persisted", async () => {
       return { status: "failed", failed: true, changed: false, skipped: false };
     },
   }) as any;
-  await run({}, async (dir) => {
-    await w.demo("task", {});
-    __resetInRun();
-    const result = await w.demo("task", {});
-    expect(count).toBe(2);
-    expect(result.failed).toBe(true);
-    expect(await readCache(dir)).toBe("");
-  });
+  const dir = await tempDir();
+  await play(dir, {}, () => w.demo("task", {}));
+  const result: any = await play(dir, {}, () => w.demo("task", {}));
+  expect(count).toBe(2);
+  expect(result.failed).toBe(true);
+  expect(await readCache(dir)).toBe("");
 });
 
 test("cache:true and no opts dedupe together", async () => {
   const { barrel, calls } = makeBarrel();
   const w = wrap(barrel) as any;
-  await run({}, async () => {
+  const dir = await tempDir();
+  await play(dir, {}, async () => {
     await w.demo("task", { out: "a" });
     await w.demo("task", { out: "a" }, { cache: true });
-    expect(calls).toHaveLength(1);
   });
+  expect(calls).toHaveLength(1);
 });
