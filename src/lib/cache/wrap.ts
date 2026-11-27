@@ -54,8 +54,7 @@ const runPersisted = async (
   return result;
 };
 
-const wrapOne =
-  (fn: Underlying) =>
+const wrapOne = <TArgs, TOut>(fn: ModuleFn<>) =>
   async (id: string, args: unknown, opts?: CacheOpts): Promise<unknown> => {
     const { cache, ...forwarded } = opts ?? {};
     const forwardedOpts =
@@ -91,7 +90,7 @@ class WrappedModule<TArgs, TOut> {
   constructor(private readonly moduleFn: ModuleFn<TArgs, TOut>) {}
 
   run = async (
-    id: string,
+    name: string,
     args: TArgs,
     opts: WrappedModuleOpts = {},
   ): Promise<ModuleResult<TOut>> => {
@@ -102,7 +101,7 @@ class WrappedModule<TArgs, TOut> {
 
     const hash = hashCall(args, opts);
     const host = currentHost();
-    const result = await currentStore().run(host, id, hash, () =>
+    const result = await currentStore().run(host,  hash, () =>
       this.moduleFn(id, args, opts),
     );
     return result.output;

@@ -4,13 +4,11 @@ import path from "node:path";
 import { currentContext } from "../context.ts";
 import { HostRef, ModuleResult } from "module-runner";
 
-export type CacheEntry = { hash: string; output: unknown };
+export type CacheHit<TOut> = { hit: boolean; result: ModuleResult<TOut> };
 
-export type CacheHit = { hit: boolean; output: unknown };
+type CacheData = Record<string, Record<string, ModuleResult<unknown>>>;
 
-type CacheData = Record<string, Record<string, CacheEntry>>;
-
-type Inflight = { hash: string; promise: Promise<CacheHit> };
+type Inflight<TOut> = Promise<CacheHit<TOut>>;
 
 const CACHE_FILE = "cache.json";
 
@@ -20,7 +18,7 @@ export class CacheStore {
   private data: CacheData = {};
   private loading?: Promise<CacheData>;
   private flushing: Promise<void> = Promise.resolve();
-  private inflight = new Map<symbol, Map<string, Inflight>>();
+  private inflight = new Map<symbol, Map<string, Inflight<unknown>>>();
 
   constructor(private readonly file: string) {}
 
@@ -41,12 +39,19 @@ export class CacheStore {
     return this.data;
   };
 
-  get = async (host: string, id: string): Promise<CacheEntry | undefined> => {
+  get = async (
+    host: string,
+    id: string,
+  ): Promise<ModuleResult<unknown> | undefined> => {
     const data = await this.load();
     return data[host]?.[id];
   };
 
-  set = async (host: string, id: string, entry: CacheEntry): Promise<void> => {
+  set = async (
+    host: string,
+    id: string,
+    entry: ModuleResult<any>,
+  ): Promise<void> => {
     await this.load();
     (this.data[host] ??= {})[id] = entry;
     await this.flush();
@@ -64,9 +69,9 @@ export class CacheStore {
     return this.flushing;
   };
 
-  private getHostRuns = (host: HostRef): Map<string, Inflight> => {
+  private getHostRuns = (host: HostRef): Map<string, Inflight<unknown>> => {
     if (!this.inflight.has(host.id)) {
-      this.inflight.set(host.id, new Map<string, Inflight>());
+      this.inflight.set(host.id, new Map<string, Inflight<unknown>>());
     }
     return this.inflight.get(host.id)!;
   };
@@ -74,52 +79,46 @@ export class CacheStore {
   private getInflight = (
     host: HostRef,
     resourceId: string,
-  ): Inflight | undefined => {
+  ): Inflight<unknown> | undefined => {
     return this.getHostRuns(host).get(resourceId);
   };
 
   private setInflight = (
     host: HostRef,
     resourceId: string,
-    inflight: Inflight,
+    inflight: Inflight<any>,
   ): void => {
     this.getHostRuns(host).set(resourceId, inflight);
   };
 
-  run = (
+  run = <TOut>(
     host: HostRef,
-    id: string,
     hash: string,
-    compute: () => Promise<ModuleResult<unknown>>,
-    // persist: (result: unknown) => boolean,
-  ): Promise<CacheHit> => {
-    const inflight = this.getInflight(host, id);
+    compute: () => Promise<ModuleResult<TOut>>,
+  ): Promise<CacheHit<TOut>> => {
+    const inflight = this.getInflight(host, hash);
     if (!inflight) {
-      const promise = this.resolve(host.name, id, hash, compute);
-      this.setInflight(host, id, { hash, promise });
+      const promise = this.resolve(host.name, hash, compute);
+      this.setInflight(host, hash, promise);
       return promise;
     }
-    if (inflight.hash !== hash) {
-      throw new Error(
-        `duplicate id "${id}" on host "${host.name}" with different arguments`,
-      );
-    }
-    return inflight.promise;
+    return inflight;
   };
 
-  private resolve = async (
+  private resolve = async <TOut>(
     host: string,
-    id: string,
     hash: string,
-    compute: () => Promise<ModuleResult<unknown>>,
-  ): Promise<CacheHit> => {
-    const stored = await this.get(host, id);
-    if (stored?.hash === hash) return { hit: true, output: stored.output };
+    compute: () => Promise<ModuleResult<TOut>>,
+  ): Promise<CacheHit<TOut>> => {
+    const stored = await this.get(host, hash);
+    if (stored) {
+      return { hit: true, result: stored };
+    }
     const result = await compute();
     if (!result.failed && !result.skipped) {
-      await this.set(host, id, { hash, output: result });
+      await this.set(host, hash, { hash, output: result });
     }
-    return { hit: false, output: result };
+    return { hit: false, result };
   };
 }
 
